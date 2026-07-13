@@ -44,7 +44,11 @@ export interface WaypointState {
   phase: Phase;
   showScience: boolean;
   completedDates: string[]; // days marked done, as "YYYY-MM-DD" keys
+  feelings: Record<string, Feeling>; // how each completed day felt, by date key
 }
+
+// Behavioral-activation reflection: how the action felt after doing it.
+export type Feeling = "good" | "okay" | "hard";
 
 // --- Constants ---
 
@@ -64,6 +68,7 @@ export const INITIAL_STATE: WaypointState = {
   phase: "setup",
   showScience: false,
   completedDates: [],
+  feelings: {},
 };
 
 export const HOURS_OPTIONS = ["~1 hour", "~3 hours", "~5 hours", "10+ hours"];
@@ -101,6 +106,8 @@ export const SCIENCE_NOTES = {
   // Exact copy requested for the weekly-tracking area.
   weekly:
     "There's no streak here on purpose. Research shows that breaking a perfect streak makes people more likely to quit entirely — and missing a single day doesn't actually set your habit back; about 80% consistency still builds it. So we track your week, not your perfection.",
+  feeling:
+    "Noticing how it felt — not just that you did it — is the active ingredient in behavioral activation. Linking the effort to how it left you feeling is what makes you more likely to come back to it tomorrow.",
 };
 
 // --- Date + week helpers (local time, keyed as "YYYY-MM-DD") ---
@@ -204,6 +211,7 @@ export function loadState(): WaypointState {
       steps: saved.steps ?? [],
       stepsDone: saved.stepsDone ?? 0,
       completedDates: saved.completedDates ?? [],
+      feelings: saved.feelings ?? {},
     };
   } catch {
     return INITIAL_STATE;

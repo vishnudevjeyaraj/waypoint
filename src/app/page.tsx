@@ -5,6 +5,7 @@ import {
   Breakdown,
   CompletionStatus,
   CUE_OPTIONS,
+  Feeling,
   HORIZONS,
   HorizonKey,
   HOURS_OPTIONS,
@@ -170,19 +171,35 @@ export default function Home() {
   }
 
   // Toggle today's completion. Marking done also advances the step ladder by
-  // one; undoing steps it back. (One step per day.)
+  // one; undoing steps it back and clears today's reflection. (One step per day.)
   function toggleToday() {
     setState((prev) => {
       const key = todayKey();
       const has = prev.completedDates.includes(key);
+      if (has) {
+        const feelings = { ...prev.feelings };
+        delete feelings[key];
+        return {
+          ...prev,
+          completedDates: prev.completedDates.filter((d) => d !== key),
+          stepsDone: Math.max(0, prev.stepsDone - 1),
+          feelings,
+        };
+      }
       return {
         ...prev,
-        completedDates: has
-          ? prev.completedDates.filter((d) => d !== key)
-          : [...prev.completedDates, key],
-        stepsDone: has ? Math.max(0, prev.stepsDone - 1) : prev.stepsDone + 1,
+        completedDates: [...prev.completedDates, key],
+        stepsDone: prev.stepsDone + 1,
       };
     });
+  }
+
+  // Log how today's step felt (behavioral activation).
+  function logFeeling(feeling: Feeling) {
+    setState((prev) => ({
+      ...prev,
+      feelings: { ...prev.feelings, [todayKey()]: feeling },
+    }));
   }
 
   function startOver() {
@@ -214,6 +231,7 @@ export default function Home() {
             loading={loading}
             error={error}
             onToggleToday={toggleToday}
+            onLogFeeling={logFeeling}
             onPlanNext={planNext}
             onStartOver={startOver}
           />
@@ -336,6 +354,7 @@ function AppHome({
   loading,
   error,
   onToggleToday,
+  onLogFeeling,
   onPlanNext,
   onStartOver,
 }: {
@@ -344,6 +363,7 @@ function AppHome({
   loading: boolean;
   error: string | null;
   onToggleToday: () => void;
+  onLogFeeling: (feeling: Feeling) => void;
   onPlanNext: () => void;
   onStartOver: () => void;
 }) {
@@ -379,9 +399,11 @@ function AppHome({
           why={state.why}
           monthGoal={breakdown.month}
           status={status}
+          feeling={state.feelings[todayKey()]}
           loading={loading}
           error={error}
           onToggleToday={onToggleToday}
+          onLogFeeling={onLogFeeling}
           onPlanNext={onPlanNext}
           showScience={state.showScience}
         />
@@ -438,9 +460,11 @@ function TodayView({
   why,
   monthGoal,
   status,
+  feeling,
   loading,
   error,
   onToggleToday,
+  onLogFeeling,
   onPlanNext,
   showScience,
 }: {
@@ -450,9 +474,11 @@ function TodayView({
   why: string;
   monthGoal: string;
   status: CompletionStatus;
+  feeling: Feeling | undefined;
   loading: boolean;
   error: string | null;
   onToggleToday: () => void;
+  onLogFeeling: (feeling: Feeling) => void;
   onPlanNext: () => void;
   showScience: boolean;
 }) {
@@ -523,14 +549,22 @@ function TodayView({
       )}
 
       {status.doneToday ? (
-        <div className="text-base">
-          <span className="text-foreground">Done for today.</span>{" "}
-          <button
-            onClick={onToggleToday}
-            className="text-muted hover:text-foreground transition-colors underline underline-offset-2"
-          >
-            Undo
-          </button>
+        <div>
+          <div className="text-base mb-6">
+            <span className="text-foreground">Done for today.</span>{" "}
+            <button
+              onClick={onToggleToday}
+              className="text-muted hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Undo
+            </button>
+          </div>
+          <FeelingPrompt feeling={feeling} onLog={onLogFeeling} />
+          <ScienceNote
+            show={showScience}
+            text={SCIENCE_NOTES.feeling}
+            label="Why we ask how it felt"
+          />
         </div>
       ) : (
         <PrimaryButton onClick={onToggleToday}>Mark today done</PrimaryButton>
@@ -586,6 +620,36 @@ function MissMessage({ why, fallback }: { why: string; fallback: string }) {
           Your plan for a day like this: {fallback.trim()}
         </p>
       )}
+    </div>
+  );
+}
+
+// One-tap reflection after finishing today's step (behavioral activation).
+// Neutral, not accent — the action is done; this is a gentle follow-up.
+function FeelingPrompt({
+  feeling,
+  onLog,
+}: {
+  feeling: Feeling | undefined;
+  onLog: (feeling: Feeling) => void;
+}) {
+  if (feeling) {
+    return <p className="text-sm text-muted">Noted — it felt {feeling}.</p>;
+  }
+  return (
+    <div>
+      <p className="text-sm text-muted mb-2">How did that feel?</p>
+      <div className="flex gap-2">
+        {(["good", "okay", "hard"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => onLog(f)}
+            className="px-4 py-1.5 rounded-lg border border-border hover:border-muted text-sm capitalize transition-colors"
+          >
+            {f}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -857,6 +921,12 @@ function StepBreakdown({
           </div>
         ))}
       </div>
+
+      {/* Honest expectations up front — pre-empts the false-hope quit cycle. */}
+      <p className="mt-8 text-sm text-muted leading-relaxed">
+        This is a long game — most habits take two to five months to settle, and
+        missing a day here and there won&apos;t set you back.
+      </p>
 
       <div className="mt-8">
         <PrimaryButton onClick={onContinue}>Continue</PrimaryButton>
