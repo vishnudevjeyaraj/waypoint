@@ -83,7 +83,7 @@ export const SCIENCE_NOTES = {
   goal: "We accept any goal, however vague. The breakdown is what turns it concrete — that specificity is one of the most reliable predictors of follow-through in goal-setting research.",
   why: "Connecting a goal to a personal value keeps you acting even on days you don't feel motivated, rather than waiting to feel ready. We bring this back when your motivation dips.",
   hours: "This sizes every task to the time you actually have. Most goal-setting failure comes from over-ambition — steps that don't fit real life.",
-  plan: "Deciding in advance exactly when you'll act — and what you'll do if something gets in the way — is one of the most effective ways to close the gap between intending and doing. It lets a cue trigger the action, instead of relying on willpower in the moment.",
+  plan: "Picturing what you want and then naming the real obstacle — called mental contrasting — works better than imagining success alone, which tends to backfire. Pairing that with a specific plan for when you'll act, and what you'll do when it gets hard, is one of the most reliable ways to turn intention into action.",
   horizons:
     "Your full route is here whenever you want it, but only today's step is asked of you. Goal-setting research finds that near-term subgoals — not distant ones — are what actually build momentum and the belief that you can follow through.",
   // Exact copy requested for the weekly-tracking area.

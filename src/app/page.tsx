@@ -240,6 +240,8 @@ export default function Home() {
 
             {state.step === 6 && state.breakdown && (
               <StepPlan
+                goal={state.goal}
+                why={state.why}
                 breakdown={state.breakdown}
                 initial={state.plan}
                 onFinish={finishPlan}
@@ -303,6 +305,7 @@ function AppHome({
         <TodayView
           breakdown={breakdown}
           plan={state.plan}
+          why={state.why}
           status={status}
           onToggleToday={onToggleToday}
           showScience={state.showScience}
@@ -356,12 +359,14 @@ function AppHome({
 function TodayView({
   breakdown,
   plan,
+  why,
   status,
   onToggleToday,
   showScience,
 }: {
   breakdown: Breakdown;
   plan: Plan;
+  why: string;
   status: CompletionStatus;
   onToggleToday: () => void;
   showScience: boolean;
@@ -371,16 +376,20 @@ function TodayView({
       <p className="text-sm text-muted mb-3">Your one thing for today</p>
       {/* The task is emphasized by size/weight; the accent is saved for the
           action below it. */}
-      <p className="text-2xl font-semibold tracking-tight leading-snug mb-8">
+      <p className="text-2xl font-semibold tracking-tight leading-snug mb-6">
         {breakdown.today}
       </p>
+
+      {/* Values layer: a quiet, ongoing reminder of why this matters. */}
+      {why.trim() && (
+        <p className="text-sm text-muted leading-relaxed mb-3">
+          Why this matters to you: {why.trim()}
+        </p>
+      )}
 
       {plan.cue && (
         <p className="text-sm text-muted leading-relaxed mb-10">
           When {deCap(plan.cue)}, I will do this.
-          {plan.obstacle && plan.fallback
-            ? ` If ${deCap(plan.obstacle)}, I'll ${deCap(plan.fallback)}.`
-            : ""}
         </p>
       )}
 
@@ -404,17 +413,38 @@ function TodayView({
         <p className="text-sm text-muted mt-3">
           {status.weekCount} of 7 this week
         </p>
-        {status.nudge && (
-          <p className="text-sm text-muted mt-4">
-            Want to pick this back up today?
-          </p>
-        )}
+        {status.nudge && <MissMessage why={why} fallback={plan.fallback} />}
         <ScienceNote
           show={showScience}
           text={SCIENCE_NOTES.weekly}
           label="Why there's no streak"
         />
       </div>
+    </div>
+  );
+}
+
+// A warm, self-compassionate response to a missed day — never guilt. Covers the
+// three evidenced components (self-kindness, common humanity, mindful
+// acknowledgement), resurfaces the "why", and surfaces the user's own backup
+// plan right when it's useful.
+function MissMessage({ why, fallback }: { why: string; fallback: string }) {
+  return (
+    <div className="mt-5 space-y-2">
+      <p className="text-sm text-muted leading-relaxed">
+        Missing a day is part of how this actually works — not a setback.
+        Everyone slips; picking it back up is the whole skill.
+      </p>
+      {why.trim() && (
+        <p className="text-sm text-muted leading-relaxed">
+          Remember why you started: {why.trim()}
+        </p>
+      )}
+      {fallback.trim() && (
+        <p className="text-sm text-muted leading-relaxed">
+          Your plan for a day like this: {fallback.trim()}
+        </p>
+      )}
     </div>
   );
 }
@@ -628,11 +658,15 @@ function StepBreakdown({
 // The signature interaction: attach today's task to a cue, plus an optional
 // coping plan for when something gets in the way.
 function StepPlan({
+  goal,
+  why,
   breakdown,
   initial,
   onFinish,
   showScience,
 }: {
+  goal: string;
+  why: string;
   breakdown: Breakdown;
   initial: Plan;
   onFinish: (plan: Plan) => void;
@@ -646,14 +680,30 @@ function StepPlan({
   return (
     <div>
       <h2 className="text-2xl font-medium tracking-tight mb-8">
-        When will you do today's step?
+        One last thing: your plan
       </h2>
+
+      {/* WOOP — wish + outcome. A brief, factual reminder of the goal and why,
+          held right next to the obstacle below so the two contrast (mental
+          contrasting). Kept low-key on purpose: positive daydreaming *alone*
+          tends to backfire; it's the contrast with the obstacle that works. */}
+      <p className="text-sm text-muted mb-1">You're working toward</p>
+      <p className="text-base font-medium leading-snug mb-4">
+        {goal || "your goal"}
+      </p>
+      {why.trim() && (
+        <p className="text-sm text-muted leading-relaxed mb-8">
+          Why it matters: {why.trim()}. Take a second to really picture that.
+        </p>
+      )}
 
       <p className="text-sm text-muted mb-1">Today's step</p>
       <p className="text-base font-medium leading-snug mb-8">
         {breakdown.today}
       </p>
 
+      {/* Plan — when you'll act (an implementation intention). */}
+      <p className="text-sm text-muted mb-3">When will you do it?</p>
       <ChoiceButtons
         options={CUE_OPTIONS}
         selected={cue}
@@ -661,25 +711,25 @@ function StepPlan({
         allowCustom
         customPlaceholder="Some other moment already in your day..."
       />
-
       {cue.trim() && (
         <p className="text-base leading-relaxed mt-6 text-muted">
           When {deCap(cue.trim())}, I will do this.
         </p>
       )}
 
+      {/* Obstacle + coping plan — the contrast, and what you'll do when it hits. */}
       <div className="mt-10">
         <p className="text-sm text-muted mb-3">
-          If something gets in the way (optional)
+          What&apos;s most likely to get in the way?
         </p>
         <input
           type="text"
           value={obstacle}
           onChange={(e) => setObstacle(e.target.value)}
-          placeholder="I'll be too tired"
+          placeholder="I'm too tired, I talk myself out of it..."
           className="w-full text-base bg-transparent border-b border-border pb-2 mb-5 outline-none focus:border-accent transition-colors placeholder:text-muted/50"
         />
-        <p className="text-sm text-muted mb-3">then I'll</p>
+        <p className="text-sm text-muted mb-3">When it does, I&apos;ll</p>
         <input
           type="text"
           value={fallback}
