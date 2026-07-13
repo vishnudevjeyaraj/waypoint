@@ -108,6 +108,8 @@ export const SCIENCE_NOTES = {
     "There's no streak here on purpose. Research shows that breaking a perfect streak makes people more likely to quit entirely — and missing a single day doesn't actually set your habit back; about 80% consistency still builds it. So we track your week, not your perfection.",
   feeling:
     "Noticing how it felt — not just that you did it — is the active ingredient in behavioral activation. Linking the effort to how it left you feeling is what makes you more likely to come back to it tomorrow.",
+  stuck:
+    "This is temporal motivation theory: whether you act comes down to how much you expect to succeed, how much you value it, how far off the payoff feels, and how distracting the moment is. When you stall, it's usually one of those four — so naming which one points straight to the fix.",
 };
 
 // --- Date + week helpers (local time, keyed as "YYYY-MM-DD") ---
@@ -193,6 +195,44 @@ export function stepProgress(done: number, total: number): string {
     return `${done} of ${total} steps toward this week's goal`;
   }
   return `${remaining} ${remaining === 1 ? "step" : "steps"} left to this week's goal`;
+}
+
+// The four options in the "why are you stuck?" check-in, mapped to the levers
+// of temporal motivation theory.
+export const STUCK_OPTIONS = [
+  { key: "big", label: "It feels too big" },
+  { key: "confidence", label: "I'm not sure I can" },
+  { key: "value", label: "It doesn't feel worth it" },
+  { key: "distracted", label: "I keep getting distracted" },
+] as const;
+
+export type StuckKey = (typeof STUCK_OPTIONS)[number]["key"];
+
+// Given which lever is failing, return a specific response built from the
+// user's own data (past wins, their why, their cue). Diagnose, then respond.
+export function stuckResponse(
+  choice: StuckKey,
+  ctx: { why: string; cue: string; totalDone: number }
+): string {
+  const { why, cue, totalDone } = ctx;
+  switch (choice) {
+    case "big":
+      return "Then shrink it. You don't have to finish the whole thing — doing just the first five minutes, or the easiest piece of it, counts as done today. Start there, and stop whenever you like.";
+    case "confidence":
+      return totalDone > 0
+        ? `You've already shown up ${totalDone} ${totalDone === 1 ? "day" : "days"} on this goal — that's proof you can. This step is the same muscle, just the next rep.`
+        : "Everyone's unsure at the start, and you don't have to believe you'll finish. Just take the first small piece, and let doing it be the proof.";
+    case "value":
+      return why.trim()
+        ? `Remember why you started: ${why.trim()}. The point isn't this one step — it's what it's building toward. And notice how you feel right after you do it; that's the real reward.`
+        : "The point isn't this one step — it's what it's building toward. Reconnect with why you picked this goal, and notice how you feel right after you do it; that's the real reward.";
+    case "distracted":
+      return cue.trim()
+        ? `Your plan was to do this ${deCap(cue.trim())}. Before then, clear one distraction in advance — put your phone in another room, close the extra tabs — so the easy path is the one you actually want.`
+        : "Pick one specific moment today, and clear a distraction before it arrives — put your phone in another room, close the extra tabs — so the easy path is the one you actually want.";
+    default:
+      return "Take the smallest possible version of this step, and just start there.";
+  }
 }
 
 // --- localStorage ---

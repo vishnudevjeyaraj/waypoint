@@ -13,6 +13,8 @@ import {
   Plan,
   Safety,
   SCIENCE_NOTES,
+  STUCK_OPTIONS,
+  StuckKey,
   TOTAL_SETUP_STEPS,
   WaypointState,
   clearState,
@@ -21,6 +23,7 @@ import {
   loadState,
   saveState,
   stepProgress,
+  stuckResponse,
   todayKey,
 } from "../lib/waypoint";
 
@@ -400,6 +403,7 @@ function AppHome({
           monthGoal={breakdown.month}
           status={status}
           feeling={state.feelings[todayKey()]}
+          totalDone={state.completedDates.length}
           loading={loading}
           error={error}
           onToggleToday={onToggleToday}
@@ -461,6 +465,7 @@ function TodayView({
   monthGoal,
   status,
   feeling,
+  totalDone,
   loading,
   error,
   onToggleToday,
@@ -475,6 +480,7 @@ function TodayView({
   monthGoal: string;
   status: CompletionStatus;
   feeling: Feeling | undefined;
+  totalDone: number;
   loading: boolean;
   error: string | null;
   onToggleToday: () => void;
@@ -482,6 +488,7 @@ function TodayView({
   onPlanNext: () => void;
   showScience: boolean;
 }) {
+  const [diagnosing, setDiagnosing] = useState(false);
   const total = steps.length;
   const allDone = stepsDone >= total;
 
@@ -548,53 +555,155 @@ function TodayView({
         </p>
       )}
 
-      {status.doneToday ? (
-        <div>
-          <div className="text-base mb-6">
-            <span className="text-foreground">Done for today.</span>{" "}
-            <button
-              onClick={onToggleToday}
-              className="text-muted hover:text-foreground transition-colors underline underline-offset-2"
-            >
-              Undo
-            </button>
-          </div>
-          <FeelingPrompt feeling={feeling} onLog={onLogFeeling} />
-          <ScienceNote
-            show={showScience}
-            text={SCIENCE_NOTES.feeling}
-            label="Why we ask how it felt"
-          />
-        </div>
-      ) : (
-        <PrimaryButton onClick={onToggleToday}>Mark today done</PrimaryButton>
-      )}
-
-      <div className="mt-14">
-        {/* Progress toward the week's goal, framed by the small-area rule. */}
-        {total > 0 && (
-          <p className="text-sm text-muted mb-4">
-            {stepProgress(stepsDone, total)}
-          </p>
-        )}
-
-        {/* Weekly consistency — quiet and neutral, never a scoreboard. */}
-        <WeekDots status={status} />
-        <p className="text-sm text-muted mt-3">
-          {status.weekCount} of 7 days this week
-        </p>
-        {status.nudge && <MissMessage why={why} fallback={plan.fallback} />}
-        <ScienceNote
-          show={showScience}
-          text={SCIENCE_NOTES.progress}
-          label="Why one small step at a time"
+      {diagnosing ? (
+        <StuckDiagnostic
+          why={why}
+          cue={plan.cue}
+          totalDone={totalDone}
+          showScience={showScience}
+          onClose={() => setDiagnosing(false)}
         />
+      ) : (
+        <>
+          {status.doneToday ? (
+            <div>
+              <div className="text-base mb-6">
+                <span className="text-foreground">Done for today.</span>{" "}
+                <button
+                  onClick={onToggleToday}
+                  className="text-muted hover:text-foreground transition-colors underline underline-offset-2"
+                >
+                  Undo
+                </button>
+              </div>
+              <FeelingPrompt feeling={feeling} onLog={onLogFeeling} />
+              <ScienceNote
+                show={showScience}
+                text={SCIENCE_NOTES.feeling}
+                label="Why we ask how it felt"
+              />
+            </div>
+          ) : (
+            <div>
+              <PrimaryButton onClick={onToggleToday}>
+                Mark today done
+              </PrimaryButton>
+              <button
+                onClick={() => setDiagnosing(true)}
+                className="mt-4 block text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Stuck on this step?
+              </button>
+            </div>
+          )}
+
+          <div className="mt-14">
+            {/* Progress toward the week's goal, framed by the small-area rule. */}
+            {total > 0 && (
+              <p className="text-sm text-muted mb-4">
+                {stepProgress(stepsDone, total)}
+              </p>
+            )}
+
+            {/* Weekly consistency — quiet and neutral, never a scoreboard. */}
+            <WeekDots status={status} />
+            <p className="text-sm text-muted mt-3">
+              {status.weekCount} of 7 days this week
+            </p>
+            {status.nudge && (
+              <MissMessage why={why} fallback={plan.fallback} />
+            )}
+            <ScienceNote
+              show={showScience}
+              text={SCIENCE_NOTES.progress}
+              label="Why one small step at a time"
+            />
+            <ScienceNote
+              show={showScience}
+              text={SCIENCE_NOTES.weekly}
+              label="Why there's no streak"
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// The TMT "why are you stuck?" check-in: name which motivational lever is
+// failing, then get a specific response built from the user's own data. Neutral
+// styling — this is a reflective helper, not a call to action.
+function StuckDiagnostic({
+  why,
+  cue,
+  totalDone,
+  showScience,
+  onClose,
+}: {
+  why: string;
+  cue: string;
+  totalDone: number;
+  showScience: boolean;
+  onClose: () => void;
+}) {
+  const [choice, setChoice] = useState<StuckKey | null>(null);
+
+  if (choice) {
+    return (
+      <div>
+        <p className="text-base leading-relaxed mb-8">
+          {stuckResponse(choice, { why, cue, totalDone })}
+        </p>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={onClose}
+            className="text-sm text-foreground underline underline-offset-2 hover:opacity-70 transition-opacity"
+          >
+            Got it
+          </button>
+          <button
+            onClick={() => setChoice(null)}
+            className="text-sm text-muted hover:text-foreground transition-colors"
+          >
+            Something else
+          </button>
+        </div>
         <ScienceNote
           show={showScience}
-          text={SCIENCE_NOTES.weekly}
-          label="Why there's no streak"
+          text={SCIENCE_NOTES.stuck}
+          label="Why we ask this"
         />
       </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-muted mb-4">
+        What&apos;s making it hard right now?
+      </p>
+      <div className="space-y-3">
+        {STUCK_OPTIONS.map((o) => (
+          <button
+            key={o.key}
+            onClick={() => setChoice(o.key)}
+            className="w-full text-left px-4 py-3 rounded-lg border border-border hover:border-muted transition-colors"
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={onClose}
+        className="mt-6 text-sm text-muted hover:text-foreground transition-colors"
+      >
+        Never mind
+      </button>
+      <ScienceNote
+        show={showScience}
+        text={SCIENCE_NOTES.stuck}
+        label="Why we ask this"
+      />
     </div>
   );
 }
