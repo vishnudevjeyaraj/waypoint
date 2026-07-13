@@ -12,7 +12,6 @@ export interface Breakdown {
   quarter: string;
   month: string;
   week: string;
-  today: string;
 }
 
 // The user's if-then plan (the "signature interaction").
@@ -26,12 +25,21 @@ export interface Plan {
 // "setup" = the first-run flow; "app" = the returning daily loop / home.
 export type Phase = "setup" | "app";
 
+// Raised instead of a breakdown when a goal shouldn't be decomposed: "crisis"
+// (self-harm / crisis distress) or "harmful" (clearly dangerous goal).
+export interface Safety {
+  concern: "crisis" | "harmful";
+  message: string;
+}
+
 export interface WaypointState {
   step: number; // which setup step (1-6) the user is on
   goal: string;
   why: string;
   timePerWeek: string;
   breakdown: Breakdown | null;
+  steps: string[]; // ordered daily steps laddering to the week milestone
+  stepsDone: number; // how many steps of the current ladder are complete
   plan: Plan;
   phase: Phase;
   showScience: boolean;
@@ -41,7 +49,7 @@ export interface WaypointState {
 // --- Constants ---
 
 // Bumped from "waypoint" so the reshaped state doesn't collide with older saves.
-export const STORAGE_KEY = "waypoint-v2";
+export const STORAGE_KEY = "waypoint-v3";
 export const TOTAL_SETUP_STEPS = 6;
 
 export const INITIAL_STATE: WaypointState = {
@@ -50,6 +58,8 @@ export const INITIAL_STATE: WaypointState = {
   why: "",
   timePerWeek: "",
   breakdown: null,
+  steps: [],
+  stepsDone: 0,
   plan: { cue: "", obstacle: "", fallback: "" },
   phase: "setup",
   showScience: false,
@@ -86,6 +96,8 @@ export const SCIENCE_NOTES = {
   plan: "Picturing what you want and then naming the real obstacle — called mental contrasting — works better than imagining success alone, which tends to backfire. Pairing that with a specific plan for when you'll act, and what you'll do when it gets hard, is one of the most reliable ways to turn intention into action.",
   horizons:
     "Your full route is here whenever you want it, but only today's step is asked of you. Goal-setting research finds that near-term subgoals — not distant ones — are what actually build momentum and the belief that you can follow through.",
+  progress:
+    "Big goals stall when the next move feels far off, so Waypoint only ever asks for the next small step. Finishing one is real evidence you can do the next — that's what builds momentum. Early on we highlight what you've done; as you near the week's goal we switch to what's left.",
   // Exact copy requested for the weekly-tracking area.
   weekly:
     "There's no streak here on purpose. Research shows that breaking a perfect streak makes people more likely to quit entirely — and missing a single day doesn't actually set your habit back; about 80% consistency still builds it. So we track your week, not your perfection.",
@@ -163,6 +175,19 @@ export function completionStatus(completedDates: string[]): CompletionStatus {
   };
 }
 
+// Small-area hypothesis (Koo & Fishbach): motivation is highest when attention
+// is on whichever quantity is smaller. Early in the ladder we emphasize what's
+// been done; past the halfway point we flip to what remains.
+export function stepProgress(done: number, total: number): string {
+  if (total <= 0) return "";
+  const remaining = total - done;
+  if (remaining <= 0) return "All of this week's steps done";
+  if (done <= total / 2) {
+    return `${done} of ${total} steps toward this week's goal`;
+  }
+  return `${remaining} ${remaining === 1 ? "step" : "steps"} left to this week's goal`;
+}
+
 // --- localStorage ---
 
 export function loadState(): WaypointState {
@@ -176,6 +201,8 @@ export function loadState(): WaypointState {
       ...INITIAL_STATE,
       ...saved,
       plan: { ...INITIAL_STATE.plan, ...(saved.plan ?? {}) },
+      steps: saved.steps ?? [],
+      stepsDone: saved.stepsDone ?? 0,
       completedDates: saved.completedDates ?? [],
     };
   } catch {

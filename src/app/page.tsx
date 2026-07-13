@@ -10,6 +10,7 @@ import {
   HOURS_OPTIONS,
   INITIAL_STATE,
   Plan,
+  Safety,
   SCIENCE_NOTES,
   TOTAL_SETUP_STEPS,
   WaypointState,
@@ -18,6 +19,7 @@ import {
   deCap,
   loadState,
   saveState,
+  stepProgress,
   todayKey,
 } from "../lib/waypoint";
 
@@ -32,33 +34,75 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false); // AI request in flight
   const [error, setError] = useState<string | null>(null);
+  const [safety, setSafety] = useState<Safety | null>(null); // declined goal
 
-  // Ask the API to decompose the goal. Only needs goal / why / hours — the cue
-  // is collected later, in the plan step.
-  async function fetchBreakdown(data: {
-    goal: string;
-    why: string;
-    timePerWeek: string;
-  }) {
+  // Ask the API to decompose the goal into tiers + a ladder of daily steps.
+  // `isContinuation` = regenerating the next week once the current ladder is
+  // done; in that case we keep the long-term tiers and only take the new week.
+  async function requestBreakdown(
+    payload: Record<string, unknown>,
+    isContinuation: boolean
+  ) {
     setLoading(true);
     setError(null);
+    setSafety(null);
     try {
       const res = await fetch("/api/breakdown", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || "Something went wrong. Please try again.");
       }
-      const breakdown: Breakdown = await res.json();
-      setState((prev) => ({ ...prev, breakdown }));
+      const data = await res.json(); // { year, quarter, month, week, steps } | { concern }
+      // The goal was declined (crisis or clearly harmful) — don't decompose it.
+      if (data.concern === "crisis" || data.concern === "harmful") {
+        setSafety({
+          concern: data.concern,
+          message: typeof data.message === "string" ? data.message : "",
+        });
+        return;
+      }
+      setState((prev) => {
+        const keep = isContinuation ? prev.breakdown : null;
+        const breakdown: Breakdown = {
+          year: keep ? keep.year : data.year,
+          quarter: keep ? keep.quarter : data.quarter,
+          month: keep ? keep.month : data.month,
+          week: data.week,
+        };
+        return { ...prev, breakdown, steps: data.steps, stepsDone: 0 };
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function fetchBreakdown(data: {
+    goal: string;
+    why: string;
+    timePerWeek: string;
+  }) {
+    requestBreakdown(data, false);
+  }
+
+  // Called when the user finishes the week's ladder and asks for the next one.
+  function planNext() {
+    requestBreakdown(
+      {
+        goal: state.goal,
+        why: state.why,
+        timePerWeek: state.timePerWeek,
+        previousWeek: state.breakdown?.week,
+        completedSteps: state.steps,
+        monthGoal: state.breakdown?.month,
+      },
+      true
+    );
   }
 
   // Load saved state once, on first render.
@@ -125,7 +169,8 @@ export default function Home() {
     setState((prev) => ({ ...prev, plan, phase: "app" }));
   }
 
-  // Toggle today's completion (checkbox on the home screen).
+  // Toggle today's completion. Marking done also advances the step ladder by
+  // one; undoing steps it back. (One step per day.)
   function toggleToday() {
     setState((prev) => {
       const key = todayKey();
@@ -135,6 +180,7 @@ export default function Home() {
         completedDates: has
           ? prev.completedDates.filter((d) => d !== key)
           : [...prev.completedDates, key],
+        stepsDone: has ? Math.max(0, prev.stepsDone - 1) : prev.stepsDone + 1,
       };
     });
   }
@@ -143,6 +189,7 @@ export default function Home() {
     setState((prev) => ({ ...INITIAL_STATE, showScience: prev.showScience }));
     setInput("");
     setError(null);
+    setSafety(null);
     clearState();
   }
 
@@ -157,16 +204,17 @@ export default function Home() {
 
   return (
     <>
-      {!inApp && (
-        <RouteRail current={state.step} total={TOTAL_SETUP_STEPS} />
-      )}
+      {!inApp && <RouteRail current={state.step} total={TOTAL_SETUP_STEPS} />}
 
       <main className="flex-1 flex items-center justify-center px-6 py-16">
         {inApp ? (
           <AppHome
             state={state}
             status={completionStatus(state.completedDates)}
+            loading={loading}
+            error={error}
             onToggleToday={toggleToday}
+            onPlanNext={planNext}
             onStartOver={startOver}
           />
         ) : (
@@ -221,28 +269,44 @@ export default function Home() {
               />
             )}
 
-            {state.step === 5 && (
-              <StepBreakdown
-                breakdown={state.breakdown}
-                loading={loading}
-                error={error}
-                onRetry={() =>
-                  fetchBreakdown({
-                    goal: state.goal,
-                    why: state.why,
-                    timePerWeek: state.timePerWeek,
-                  })
-                }
-                onContinue={advance}
-                showScience={state.showScience}
-              />
-            )}
+            {state.step === 5 &&
+              (safety ? (
+                <SafetyScreen
+                  safety={safety}
+                  onChangeGoal={() => {
+                    setSafety(null);
+                    setInput(state.goal);
+                    setState((p) => ({
+                      ...p,
+                      step: 2,
+                      breakdown: null,
+                      steps: [],
+                    }));
+                  }}
+                />
+              ) : (
+                <StepBreakdown
+                  breakdown={state.breakdown}
+                  steps={state.steps}
+                  loading={loading}
+                  error={error}
+                  onRetry={() =>
+                    fetchBreakdown({
+                      goal: state.goal,
+                      why: state.why,
+                      timePerWeek: state.timePerWeek,
+                    })
+                  }
+                  onContinue={advance}
+                  showScience={state.showScience}
+                />
+              ))}
 
             {state.step === 6 && state.breakdown && (
               <StepPlan
                 goal={state.goal}
                 why={state.why}
-                breakdown={state.breakdown}
+                firstStep={state.steps[0] ?? ""}
                 initial={state.plan}
                 onFinish={finishPlan}
                 showScience={state.showScience}
@@ -269,12 +333,18 @@ export default function Home() {
 function AppHome({
   state,
   status,
+  loading,
+  error,
   onToggleToday,
+  onPlanNext,
   onStartOver,
 }: {
   state: WaypointState;
   status: CompletionStatus;
+  loading: boolean;
+  error: string | null;
   onToggleToday: () => void;
+  onPlanNext: () => void;
   onStartOver: () => void;
 }) {
   const [tab, setTab] = useState<HorizonKey>("today");
@@ -303,11 +373,16 @@ function AppHome({
 
       {tab === "today" ? (
         <TodayView
-          breakdown={breakdown}
+          steps={state.steps}
+          stepsDone={state.stepsDone}
           plan={state.plan}
           why={state.why}
+          monthGoal={breakdown.month}
           status={status}
+          loading={loading}
+          error={error}
           onToggleToday={onToggleToday}
+          onPlanNext={onPlanNext}
           showScience={state.showScience}
         />
       ) : (
@@ -357,27 +432,81 @@ function AppHome({
 }
 
 function TodayView({
-  breakdown,
+  steps,
+  stepsDone,
   plan,
   why,
+  monthGoal,
   status,
+  loading,
+  error,
   onToggleToday,
+  onPlanNext,
   showScience,
 }: {
-  breakdown: Breakdown;
+  steps: string[];
+  stepsDone: number;
   plan: Plan;
   why: string;
+  monthGoal: string;
   status: CompletionStatus;
+  loading: boolean;
+  error: string | null;
   onToggleToday: () => void;
+  onPlanNext: () => void;
   showScience: boolean;
 }) {
+  const total = steps.length;
+  const allDone = stepsDone >= total;
+
+  // Regenerating the next week's ladder.
+  if (loading) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-lg text-muted animate-pulse">
+          Planning your next steps...
+        </p>
+      </div>
+    );
+  }
+
+  // Finished this week's ladder (and it's a fresh day) — offer the next week.
+  if (allDone && !status.doneToday) {
+    return (
+      <div>
+        <p className="text-sm text-muted mb-3">This week</p>
+        <p className="text-2xl font-semibold tracking-tight leading-snug mb-6">
+          You&apos;ve finished this week&apos;s steps. Nice work.
+        </p>
+        {monthGoal.trim() && (
+          <p className="text-sm text-muted leading-relaxed mb-10">
+            Real progress toward {monthGoal.trim()}.
+          </p>
+        )}
+        {error && <p className="text-sm text-muted mb-4">{error}</p>}
+        <PrimaryButton onClick={onPlanNext}>Plan next week</PrimaryButton>
+
+        <div className="mt-14">
+          <WeekDots status={status} />
+          <p className="text-sm text-muted mt-3">
+            {status.weekCount} of 7 days this week
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // A normal day: show the current step in the ladder.
+  const idx = status.doneToday ? Math.max(0, stepsDone - 1) : stepsDone;
+  const task = steps[idx] ?? "";
+
   return (
     <div>
       <p className="text-sm text-muted mb-3">Your one thing for today</p>
       {/* The task is emphasized by size/weight; the accent is saved for the
           action below it. */}
       <p className="text-2xl font-semibold tracking-tight leading-snug mb-6">
-        {breakdown.today}
+        {task}
       </p>
 
       {/* Values layer: a quiet, ongoing reminder of why this matters. */}
@@ -407,13 +536,25 @@ function TodayView({
         <PrimaryButton onClick={onToggleToday}>Mark today done</PrimaryButton>
       )}
 
-      {/* Weekly completion — quiet and neutral, never a scoreboard. */}
       <div className="mt-14">
+        {/* Progress toward the week's goal, framed by the small-area rule. */}
+        {total > 0 && (
+          <p className="text-sm text-muted mb-4">
+            {stepProgress(stepsDone, total)}
+          </p>
+        )}
+
+        {/* Weekly consistency — quiet and neutral, never a scoreboard. */}
         <WeekDots status={status} />
         <p className="text-sm text-muted mt-3">
-          {status.weekCount} of 7 this week
+          {status.weekCount} of 7 days this week
         </p>
         {status.nudge && <MissMessage why={why} fallback={plan.fallback} />}
+        <ScienceNote
+          show={showScience}
+          text={SCIENCE_NOTES.progress}
+          label="Why one small step at a time"
+        />
         <ScienceNote
           show={showScience}
           text={SCIENCE_NOTES.weekly}
@@ -503,6 +644,78 @@ function StepWelcome({ onContinue }: { onContinue: () => void }) {
         Break any goal into one thing you can do today.
       </p>
       <PrimaryButton onClick={onContinue}>Get started</PrimaryButton>
+      <p className="mt-12 text-xs text-muted/80 leading-relaxed max-w-xs mx-auto">
+        Waypoint is a wellness and productivity tool, not medical or
+        mental-health treatment.
+      </p>
+    </div>
+  );
+}
+
+// Shown instead of a breakdown when a goal is declined. For a crisis we lead
+// with vetted resources; for a harmful goal we decline gently. No accent, no
+// task list — this is deliberately not a moment for a call to action.
+function SafetyScreen({
+  safety,
+  onChangeGoal,
+}: {
+  safety: Safety;
+  onChangeGoal: () => void;
+}) {
+  if (safety.concern === "crisis") {
+    return (
+      <div>
+        <h2 className="text-2xl font-medium tracking-tight mb-4">
+          It sounds like you&apos;re carrying something heavy right now.
+        </h2>
+        <p className="text-base text-muted leading-relaxed mb-8">
+          Waypoint isn&apos;t the right tool for this, and that&apos;s okay — you
+          don&apos;t have to face it alone. If you&apos;re in the US, people are
+          ready to help, any time:
+        </p>
+        <div className="space-y-4 mb-10">
+          <p className="text-base leading-relaxed">
+            <span className="text-foreground">
+              988 Suicide &amp; Crisis Lifeline
+            </span>
+            <br />
+            <span className="text-muted">Call or text 988</span>
+          </p>
+          <p className="text-base leading-relaxed">
+            <span className="text-foreground">Crisis Text Line</span>
+            <br />
+            <span className="text-muted">Text HOME to 741741</span>
+          </p>
+          <p className="text-base leading-relaxed">
+            <span className="text-muted">Outside the US: </span>
+            <span className="text-foreground">findahelpline.com</span>
+          </p>
+        </div>
+        <button
+          onClick={onChangeGoal}
+          className="text-sm text-muted hover:text-foreground transition-colors"
+        >
+          Set a different goal
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-2xl font-medium tracking-tight mb-4">
+        Let&apos;s not turn this one into a plan.
+      </h2>
+      <p className="text-base text-muted leading-relaxed mb-8">
+        {safety.message.trim() ||
+          "Some goals can do more harm than good when they're turned into daily targets and tracking, so Waypoint doesn't build plans around them. If this has been weighing on you, talking with someone you trust or a professional can genuinely help."}
+      </p>
+      <button
+        onClick={onChangeGoal}
+        className="text-sm text-foreground underline underline-offset-2 hover:opacity-70 transition-opacity"
+      >
+        Set a different goal
+      </button>
     </div>
   );
 }
@@ -585,10 +798,11 @@ function StepChoice({
   );
 }
 
-// The AI result. Shows today prominently and the rest of the route compactly —
-// deliberately not a wall of tasks.
+// The AI result. Shows the first step prominently and the rest of the route
+// compactly — deliberately not a wall of tasks.
 function StepBreakdown({
   breakdown,
+  steps,
   loading,
   error,
   onRetry,
@@ -596,6 +810,7 @@ function StepBreakdown({
   showScience,
 }: {
   breakdown: Breakdown | null;
+  steps: string[];
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -632,7 +847,7 @@ function StepBreakdown({
     <div>
       <p className="text-sm text-muted mb-3">Here's your route</p>
       <p className="text-sm text-muted mb-1">Today</p>
-      <p className="text-xl font-semibold leading-snug mb-8">{breakdown.today}</p>
+      <p className="text-xl font-semibold leading-snug mb-8">{steps[0] ?? ""}</p>
 
       <div className="border-t border-border pt-6 space-y-3 text-sm">
         {rows.map(([label, text]) => (
@@ -655,19 +870,19 @@ function StepBreakdown({
   );
 }
 
-// The signature interaction: attach today's task to a cue, plus an optional
-// coping plan for when something gets in the way.
+// The signature interaction: WOOP (wish + outcome + obstacle + plan). Attaches
+// today's step to a cue, with an optional coping plan for when it gets hard.
 function StepPlan({
   goal,
   why,
-  breakdown,
+  firstStep,
   initial,
   onFinish,
   showScience,
 }: {
   goal: string;
   why: string;
-  breakdown: Breakdown;
+  firstStep: string;
   initial: Plan;
   onFinish: (plan: Plan) => void;
   showScience: boolean;
@@ -698,9 +913,7 @@ function StepPlan({
       )}
 
       <p className="text-sm text-muted mb-1">Today's step</p>
-      <p className="text-base font-medium leading-snug mb-8">
-        {breakdown.today}
-      </p>
+      <p className="text-base font-medium leading-snug mb-8">{firstStep}</p>
 
       {/* Plan — when you'll act (an implementation intention). */}
       <p className="text-sm text-muted mb-3">When will you do it?</p>
