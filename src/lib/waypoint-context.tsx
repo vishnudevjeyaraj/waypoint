@@ -50,6 +50,7 @@ interface WaypointContextValue {
   planNext: () => void;
   toggleToday: () => void;
   logFeeling: (feeling: Feeling) => void;
+  editStep: (index: number, text: string) => void;
   startOver: () => void;
   toggleScience: () => void;
 }
@@ -248,6 +249,16 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     }));
   }
 
+  // Edit a step in the current ladder (human-in-the-loop).
+  function editStep(index: number, text: string) {
+    setState((prev) => {
+      if (index < 0 || index >= prev.steps.length || !text.trim()) return prev;
+      const steps = [...prev.steps];
+      steps[index] = text.trim();
+      return { ...prev, steps };
+    });
+  }
+
   function startOver() {
     setState((prev) => ({ ...INITIAL_STATE, showScience: prev.showScience }));
     setInput("");
@@ -279,6 +290,7 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     planNext,
     toggleToday,
     logFeeling,
+    editStep,
     startOver,
     toggleScience,
   };
