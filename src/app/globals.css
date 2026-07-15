@@ -1,33 +1,68 @@
 @import "tailwindcss";
 
+/* Committed dark theme — formalized from the app's existing dark look.
+   See waypoint-ui-spec.md §3. */
 :root {
-  --background: #fafafa;
-  --foreground: #1a1a1a;
-  --accent: #3B82F6;
-  --muted: #6b7280;
-  --border: #e5e7eb;
+  --bg: #0b0d10; /* page background, near-black */
+  --surface: #14171c; /* cards, the tab bar, raised panels */
+  --surface-hover: #1b1f26;
+  --border: #262b33; /* hairline dividers */
+
+  --text: #f2f3f5; /* primary text */
+  --text-muted: #9ba1ac; /* secondary text, inactive nav */
+  --text-faint: #5b616c; /* placeholders, timestamps */
+
+  --accent: #3b82f6; /* the ONE accent */
+  --accent-soft: rgba(59, 130, 246, 0.12);
+  --accent-text: #93bbfc;
+
+  --success: #4ade80; /* used sparingly — completion */
+  --warning: #f5a524; /* used sparingly — gentle miss note */
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-accent: var(--accent);
-  --color-muted: var(--muted);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  /* Back-compat aliases so existing utility classes keep working against the
+     new palette (bg-background, text-foreground, text-muted, border-border). */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+
   --font-sans: var(--font-geist-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #111111;
-    --foreground: #e5e5e5;
-    --accent: #60A5FA;
-    --muted: #9ca3af;
-    --border: #2a2a2a;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
