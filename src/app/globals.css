@@ -58,6 +58,21 @@ body {
   color: var(--text);
 }
 
+/* Brief confirmation when the day's task is checked — small, not celebratory. */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

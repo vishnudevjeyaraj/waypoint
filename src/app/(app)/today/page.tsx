@@ -9,16 +9,10 @@ import {
   StuckKey,
   completionStatus,
   deCap,
-  stepProgress,
   stuckResponse,
   todayKey,
 } from "../../../lib/waypoint";
-import {
-  MissMessage,
-  PrimaryButton,
-  ScienceNote,
-  WeekDots,
-} from "../../../components/ui";
+import { PrimaryButton, ScienceNote, WeekDots } from "../../../components/ui";
 
 export default function TodayPage() {
   const { state, loading, error, toggleToday, logFeeling, planNext } =
@@ -26,14 +20,10 @@ export default function TodayPage() {
   const [diagnosing, setDiagnosing] = useState(false);
 
   const status = completionStatus(state.completedDates);
-  const steps = state.steps;
-  const stepsDone = state.stepsDone;
-  const total = steps.length;
-  const allDone = stepsDone >= total;
-  const plan = state.plan;
-  const why = state.why;
-  const feeling = state.feelings[todayKey()];
-  const showScience = state.showScience;
+  const { steps, stepsDone, plan } = state;
+  const allDone = stepsDone >= steps.length;
+  const done = status.doneToday;
+  const task = steps[done ? Math.max(0, stepsDone - 1) : stepsDone] ?? "";
 
   const dateLabel = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -43,7 +33,7 @@ export default function TodayPage() {
 
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.08em] text-muted mb-1">
+      <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-1">
         {dateLabel}
       </p>
       <h1 className="text-[32px] font-semibold tracking-tight leading-tight mb-8">
@@ -51,10 +41,10 @@ export default function TodayPage() {
       </h1>
 
       {loading ? (
-        <p className="text-lg text-muted animate-pulse">
+        <p className="text-base text-muted animate-pulse">
           Planning your next steps...
         </p>
-      ) : allDone && !status.doneToday ? (
+      ) : allDone && !done ? (
         <CompletionCard
           monthGoal={state.breakdown?.month ?? ""}
           error={error}
@@ -64,144 +54,137 @@ export default function TodayPage() {
       ) : (
         <>
           <TaskCard
-            task={steps[status.doneToday ? Math.max(0, stepsDone - 1) : stepsDone] ?? ""}
-            plan={plan}
-            why={why}
-            done={status.doneToday}
-            feeling={feeling}
-            diagnosing={diagnosing}
-            showScience={showScience}
-            totalDone={state.completedDates.length}
+            task={task}
+            cue={plan.cue}
+            done={done}
+            feeling={state.feelings[todayKey()]}
+            showScience={state.showScience}
             onToggle={toggleToday}
             onLogFeeling={logFeeling}
-            onDiagnose={() => setDiagnosing(true)}
-            onCloseDiagnose={() => setDiagnosing(false)}
           />
 
-          <div className="mt-10">
-            {total > 0 && (
-              <p className="text-sm text-muted mb-4">
-                {stepProgress(stepsDone, total)}
+          {!done &&
+            (diagnosing ? (
+              <div className="mt-8">
+                <StuckDiagnostic
+                  why={state.why}
+                  cue={plan.cue}
+                  totalDone={state.completedDates.length}
+                  showScience={state.showScience}
+                  onClose={() => setDiagnosing(false)}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setDiagnosing(true)}
+                className="mt-5 text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Stuck on this step?
+              </button>
+            ))}
+
+          {!diagnosing && (
+            <div className="mt-10">
+              <WeekDots status={status} labels />
+              <p className="text-sm text-muted mt-3">
+                This week: {status.weekCount} of 7
               </p>
-            )}
-            <WeekDots status={status} labels />
-            <p className="text-sm text-muted mt-3">
-              This week: {status.weekCount} of 7
-            </p>
-            {status.nudge && <MissMessage why={why} fallback={plan.fallback} />}
-            <ScienceNote
-              show={showScience}
-              text={SCIENCE_NOTES.progress}
-              label="Why one small step at a time"
-            />
-          </div>
+              <ScienceNote
+                show={state.showScience}
+                text={SCIENCE_NOTES.weekly}
+                label="Why there's no streak"
+              />
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
 
+// The single focal card: task, if-then sentence, and the one accent control
+// (the checkbox). Calm, muted completed state — no streak language.
 function TaskCard({
   task,
-  plan,
-  why,
+  cue,
   done,
   feeling,
-  diagnosing,
   showScience,
-  totalDone,
   onToggle,
   onLogFeeling,
-  onDiagnose,
-  onCloseDiagnose,
 }: {
   task: string;
-  plan: { cue: string; obstacle: string; fallback: string };
-  why: string;
+  cue: string;
   done: boolean;
   feeling: Feeling | undefined;
-  diagnosing: boolean;
   showScience: boolean;
-  totalDone: number;
   onToggle: () => void;
   onLogFeeling: (f: Feeling) => void;
-  onDiagnose: () => void;
-  onCloseDiagnose: () => void;
 }) {
   return (
-    <div className="rounded-[16px] border border-border bg-surface p-5 md:p-6">
-      <p className="text-sm text-muted mb-3">Your one thing for today</p>
-      <p className="text-xl font-semibold tracking-tight leading-snug mb-4">
+    <div className="rounded-[16px] border border-border bg-surface p-6">
+      <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-3">
+        Your one thing for today
+      </p>
+      <p
+        className={`text-xl font-semibold tracking-tight leading-snug ${
+          done ? "text-muted" : "text-foreground"
+        }`}
+      >
         {task}
       </p>
-
-      {why.trim() && (
-        <p className="text-sm text-muted leading-relaxed mb-2">
-          Why this matters to you: {why.trim()}
-        </p>
-      )}
-      {plan.cue && (
-        <p className="text-sm text-muted leading-relaxed mb-6">
-          When {deCap(plan.cue)}, you&apos;ll do this.
+      {cue && (
+        <p className="text-sm text-muted leading-relaxed mt-3">
+          When {deCap(cue)}, you&apos;ll do this.
         </p>
       )}
 
-      {diagnosing ? (
-        <StuckDiagnostic
-          why={why}
-          cue={plan.cue}
-          totalDone={totalDone}
-          showScience={showScience}
-          onClose={onCloseDiagnose}
-        />
-      ) : done ? (
-        <div>
-          <div className="flex items-center gap-3 mb-6">
-            <Checkbox checked onClick={onToggle} />
-            <span className="text-base text-foreground">
-              That&apos;s today. Nothing else is due.
-            </span>
+      <div className="mt-6 pt-6 border-t border-border">
+        {done ? (
+          <div>
+            <div className="flex items-center gap-3">
+              <button onClick={onToggle} aria-label="Mark not done">
+                <Checkbox checked />
+              </button>
+              <span className="text-base text-foreground">
+                That&apos;s today. Nothing else is due.
+              </span>
+            </div>
+            <div className="mt-6">
+              <FeelingPrompt feeling={feeling} onLog={onLogFeeling} />
+              <ScienceNote
+                show={showScience}
+                text={SCIENCE_NOTES.feeling}
+                label="Why we ask how it felt"
+              />
+            </div>
           </div>
-          <FeelingPrompt feeling={feeling} onLog={onLogFeeling} />
-          <ScienceNote
-            show={showScience}
-            text={SCIENCE_NOTES.feeling}
-            label="Why we ask how it felt"
-          />
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <Checkbox checked={false} onClick={onToggle} />
+        ) : (
           <button
-            onClick={onDiagnose}
-            className="text-sm text-muted hover:text-foreground transition-colors"
+            onClick={onToggle}
+            className="flex items-center gap-3 group"
+            aria-label="Mark today done"
           >
-            Stuck on this step?
+            <Checkbox checked={false} />
+            <span className="text-base text-muted group-hover:text-foreground transition-colors">
+              Mark done
+            </span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-// Custom circular checkbox. Accent fill + white check when done, with a brief
-// scale confirmation (no confetti — calm, per the anti-dark-pattern principle).
-function Checkbox({
-  checked,
-  onClick,
-}: {
-  checked: boolean;
-  onClick: () => void;
-}) {
+// Custom 24px circular checkbox: border outline unchecked, accent fill + white
+// check when checked, with a brief scale+fade confirmation.
+function Checkbox({ checked }: { checked: boolean }) {
   return (
-    <button
-      onClick={onClick}
-      aria-pressed={checked}
-      aria-label={checked ? "Mark today not done" : "Mark today done"}
-      className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+    <span
+      className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-200 ${
         checked
-          ? "bg-accent border-accent scale-100"
-          : "border-border hover:border-muted"
+          ? "bg-accent border-accent"
+          : "border-border group-hover:border-muted"
       }`}
     >
       {checked && (
@@ -211,6 +194,7 @@ function Checkbox({
           viewBox="0 0 12 12"
           fill="none"
           className="text-white"
+          style={{ animation: "check-pop 200ms ease-out" }}
         >
           <path
             d="M2.5 6.5L5 9L9.5 3.5"
@@ -221,7 +205,7 @@ function Checkbox({
           />
         </svg>
       )}
-    </button>
+    </span>
   );
 }
 
@@ -342,8 +326,10 @@ function CompletionCard({
 }) {
   return (
     <div>
-      <div className="rounded-[16px] border border-border bg-surface p-5 md:p-6 mb-10">
-        <p className="text-sm text-muted mb-3">This week</p>
+      <div className="rounded-[16px] border border-border bg-surface p-6 mb-10">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-3">
+          This week
+        </p>
         <p className="text-xl font-semibold tracking-tight leading-snug mb-4">
           You&apos;ve finished this week&apos;s steps. Nice work.
         </p>
