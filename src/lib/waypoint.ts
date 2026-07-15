@@ -110,6 +110,8 @@ export const SCIENCE_NOTES = {
     "Noticing how it felt — not just that you did it — is the active ingredient in behavioral activation. Linking the effort to how it left you feeling is what makes you more likely to come back to it tomorrow.",
   stuck:
     "This is temporal motivation theory: whether you act comes down to how much you expect to succeed, how much you value it, how far off the payoff feels, and how distracting the moment is. When you stall, it's usually one of those four — so naming which one points straight to the fix.",
+  disengage:
+    "Quitting isn't always the enemy. Research finds that letting go of a goal that genuinely no longer fits — and redirecting that energy into one that does — is linked to better wellbeing. The trap is dropping a goal that still matters just because it got hard. So it's worth knowing which one this is.",
 };
 
 // --- Date + week helpers (local time, keyed as "YYYY-MM-DD") ---

@@ -371,7 +371,9 @@ function AppHome({
   onStartOver: () => void;
 }) {
   const [tab, setTab] = useState<HorizonKey>("today");
-  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetStage, setResetStage] = useState<
+    "idle" | "reflect" | "adaptive" | "keepgoing"
+  >("idle");
   const breakdown = state.breakdown!; // guaranteed in the app phase
 
   return (
@@ -419,38 +421,101 @@ function AppHome({
         />
       )}
 
-      {/* One goal at a time: starting a new goal means replacing this one.
-          We reuse the existing "start over" reset, behind a calm confirm. */}
+      {/* One goal at a time. Starting over is framed as a reflective fork:
+          adaptive disengagement (let go of a goal that no longer fits, and
+          redirect the energy) vs. false-hope quitting (still your goal, just
+          hard — keep going). */}
       <div className="mt-16 border-t border-border pt-8">
-        {confirmingReset ? (
+        {resetStage === "idle" && (
+          <button
+            onClick={() => setResetStage("reflect")}
+            className="text-sm text-muted hover:text-foreground transition-colors"
+          >
+            Start over with a new goal
+          </button>
+        )}
+
+        {resetStage === "reflect" && (
           <div>
             <p className="text-sm text-muted leading-relaxed mb-5">
-              Waypoint keeps you focused on one goal at a time for now. Starting
-              over replaces your current goal and clears its progress. You can
-              set a new one right after.
+              Before you switch — where&apos;s this coming from?
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => setResetStage("adaptive")}
+                className="w-full text-left px-4 py-3 rounded-lg border border-border hover:border-muted text-sm transition-colors"
+              >
+                This goal isn&apos;t the right one for me anymore
+              </button>
+              <button
+                onClick={() => setResetStage("keepgoing")}
+                className="w-full text-left px-4 py-3 rounded-lg border border-border hover:border-muted text-sm transition-colors"
+              >
+                It&apos;s still my goal — it&apos;s just been hard lately
+              </button>
+            </div>
+            <button
+              onClick={() => setResetStage("idle")}
+              className="mt-5 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              Never mind
+            </button>
+            <ScienceNote
+              show={state.showScience}
+              text={SCIENCE_NOTES.disengage}
+              label="Why we ask"
+            />
+          </div>
+        )}
+
+        {resetStage === "adaptive" && (
+          <div>
+            <p className="text-sm text-muted leading-relaxed mb-5">
+              Letting go of a goal that no longer fits is a deliberate, healthy
+              choice — not a failure. What matters is putting that energy into
+              something that fits better, and that&apos;s your next step.
             </p>
             <div className="flex items-center gap-6">
               <button
                 onClick={onStartOver}
                 className="text-sm text-foreground underline underline-offset-2 hover:opacity-70 transition-opacity"
               >
-                Replace my goal
+                Choose a new goal
               </button>
               <button
-                onClick={() => setConfirmingReset(false)}
+                onClick={() => setResetStage("idle")}
                 className="text-sm text-muted hover:text-foreground transition-colors"
               >
-                Keep my goal
+                Keep this one
               </button>
             </div>
           </div>
-        ) : (
-          <button
-            onClick={() => setConfirmingReset(true)}
-            className="text-sm text-muted hover:text-foreground transition-colors"
-          >
-            Start over with a new goal
-          </button>
+        )}
+
+        {resetStage === "keepgoing" && (
+          <div>
+            <p className="text-sm text-muted leading-relaxed mb-5">
+              Then it might not be the goal that needs to change — just the
+              approach. A hard stretch is normal; habits take months, and
+              swapping goals every time it gets tough is the false-start cycle
+              Waypoint is built to avoid. Try the &quot;stuck on this
+              step?&quot; check-in on today&apos;s task.
+            </p>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => setResetStage("idle")}
+                className="text-sm text-foreground underline underline-offset-2 hover:opacity-70 transition-opacity"
+              >
+                Keep my goal
+              </button>
+              <button
+                onClick={onStartOver}
+                className="text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Replace anyway
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
