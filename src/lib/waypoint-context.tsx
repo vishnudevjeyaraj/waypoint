@@ -42,6 +42,10 @@ interface WaypointContextValue {
     timePerWeek: string;
   }) => void;
   finishPlan: (plan: Plan) => void;
+  // AI-suggested "why" reasons, tailored to the goal
+  whyExamples: string[];
+  whyLoading: boolean;
+  fetchWhyExamples: (goal: string) => void;
   // app
   planNext: () => void;
   toggleToday: () => void;
@@ -59,6 +63,28 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [safety, setSafety] = useState<Safety | null>(null);
+  const [whyExamples, setWhyExamples] = useState<string[]>([]);
+  const [whyLoading, setWhyLoading] = useState(false);
+
+  // Generate first-person "why" suggestions tailored to the goal. Prefetched
+  // when leaving the goal step, and re-callable via the refresh button.
+  async function fetchWhyExamples(goal: string) {
+    if (!goal.trim()) return;
+    setWhyLoading(true);
+    try {
+      const res = await fetch("/api/why-examples", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal }),
+      });
+      const data = await res.json().catch(() => null);
+      setWhyExamples(res.ok && Array.isArray(data?.examples) ? data.examples : []);
+    } catch {
+      setWhyExamples([]); // non-fatal: the why step is a plain text box
+    } finally {
+      setWhyLoading(false);
+    }
+  }
 
   async function requestBreakdown(
     payload: Record<string, unknown>,
@@ -161,6 +187,10 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
       if (prev.step === 4) next.timePerWeek = value;
       return next;
     });
+    // Leaving the goal step: prefetch tailored "why" suggestions.
+    if (state.step === 2) {
+      fetchWhyExamples(value);
+    }
     if (state.step === 4) {
       fetchBreakdown({ goal: state.goal, why: state.why, timePerWeek: value });
     }
@@ -243,6 +273,9 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     changeGoal,
     fetchBreakdown,
     finishPlan,
+    whyExamples,
+    whyLoading,
+    fetchWhyExamples,
     planNext,
     toggleToday,
     logFeeling,

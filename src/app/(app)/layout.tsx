@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { hasGoal, useWaypoint } from "../../lib/waypoint-context";
 import { Nav } from "../../components/Nav";
+import { Loading } from "../../components/ui";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,7 +17,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (loaded && !hasGoal(state)) router.replace("/");
   }, [loaded, state, router]);
 
-  if (!loaded || !hasGoal(state)) return null;
+  if (!loaded) return <Loading />;
+  if (!hasGoal(state)) return null; // redirecting to onboarding
 
   return (
     <>

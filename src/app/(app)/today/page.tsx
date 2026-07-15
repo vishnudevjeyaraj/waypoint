@@ -12,12 +12,18 @@ import {
   stuckResponse,
   todayKey,
 } from "../../../lib/waypoint";
-import { PrimaryButton, ScienceNote, WeekDots } from "../../../components/ui";
+import {
+  PrimaryButton,
+  ScienceNote,
+  WeekDots,
+  usePageTitle,
+} from "../../../components/ui";
 
 export default function TodayPage() {
   const { state, loading, error, toggleToday, logFeeling, planNext } =
     useWaypoint();
   const [diagnosing, setDiagnosing] = useState(false);
+  usePageTitle("Today · Waypoint");
 
   const status = completionStatus(state.completedDates);
   const { steps, stepsDone, plan } = state;

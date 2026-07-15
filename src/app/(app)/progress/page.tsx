@@ -2,10 +2,16 @@
 
 import { useWaypoint } from "../../../lib/waypoint-context";
 import { SCIENCE_NOTES, completionStatus } from "../../../lib/waypoint";
-import { MissMessage, ScienceNote, WeekDots } from "../../../components/ui";
+import {
+  MissMessage,
+  ScienceNote,
+  WeekDots,
+  usePageTitle,
+} from "../../../components/ui";
 
 export default function ProgressPage() {
   const { state } = useWaypoint();
+  usePageTitle("Progress · Waypoint");
   const status = completionStatus(state.completedDates);
 
   // Three contextual states: approaching a second miss, a single earlier miss,

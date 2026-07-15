@@ -4,10 +4,11 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useWaypoint } from "../../../lib/waypoint-context";
 import { SCIENCE_NOTES, stepProgress } from "../../../lib/waypoint";
-import { ScienceNote } from "../../../components/ui";
+import { ScienceNote, usePageTitle } from "../../../components/ui";
 
 export default function RoutePage() {
   const { state } = useWaypoint();
+  usePageTitle("Route · Waypoint");
   const breakdown = state.breakdown!;
   const total = state.steps.length;
   const nearest = state.steps[Math.min(state.stepsDone, total - 1)] ?? "";

@@ -73,6 +73,37 @@ export const INITIAL_STATE: WaypointState = {
 
 export const HOURS_OPTIONS = ["~1 hour", "~3 hours", "~5 hours", "10+ hours"];
 
+// A curated pool of example goals for the onboarding goal step. The user sees a
+// random handful of these below the text box, refreshable for a new set.
+export const GOAL_EXAMPLES = [
+  "Learn Spanish",
+  "Run a 5K",
+  "Write a novel",
+  "Get stronger",
+  "Learn to cook",
+  "Read more books",
+  "Learn guitar",
+  "Save for a trip",
+  "Start a side project",
+  "Meditate daily",
+  "Learn to draw",
+  "Sleep better",
+  "Grow a vegetable garden",
+  "Learn to code",
+  "Run a marathon",
+  "Take better photos",
+];
+
+// Returns n random items from an array (Fisher–Yates, non-mutating).
+export function sample<T>(arr: readonly T[], n: number): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
 // Cue options are existing daily anchors — this is "habit stacking", attaching
 // the new action to something already in the user's day.
 export const CUE_OPTIONS = [

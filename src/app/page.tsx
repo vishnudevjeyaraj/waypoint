@@ -5,18 +5,27 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import { hasGoal, useWaypoint } from "../lib/waypoint-context";
 import {
   Breakdown,
   CUE_OPTIONS,
+  GOAL_EXAMPLES,
   HOURS_OPTIONS,
   Plan,
   Safety,
   SCIENCE_NOTES,
   TOTAL_SETUP_STEPS,
   deCap,
+  sample,
 } from "../lib/waypoint";
-import { ChoiceButtons, PrimaryButton, ScienceNote } from "../components/ui";
+import {
+  ChoiceButtons,
+  Loading,
+  PrimaryButton,
+  ScienceNote,
+  usePageTitle,
+} from "../components/ui";
 
 export default function Onboarding() {
   const router = useRouter();
@@ -34,14 +43,26 @@ export default function Onboarding() {
     fetchBreakdown,
     finishPlan,
     toggleScience,
+    whyExamples,
+    whyLoading,
+    fetchWhyExamples,
   } = useWaypoint();
+
+  usePageTitle("Waypoint");
+
+  // A refreshable handful of example goals below the goal input.
+  const [goalExamples, setGoalExamples] = useState<string[]>([]);
+  useEffect(() => {
+    setGoalExamples(sample(GOAL_EXAMPLES, 4));
+  }, []);
 
   // Once onboarding is complete, move into the app.
   useEffect(() => {
     if (loaded && hasGoal(state)) router.replace("/today");
   }, [loaded, state, router]);
 
-  if (!loaded || hasGoal(state)) return null;
+  if (!loaded) return <Loading />;
+  if (hasGoal(state)) return null; // redirecting to /today
 
   const canContinue = input.trim().length > 0; // steps 2-4
 
@@ -51,6 +72,21 @@ export default function Onboarding() {
 
       <main className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
+          {/* Progress indicator for phones (desktop shows the rail instead). */}
+          <div className="sm:hidden mb-8">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-2">
+              Step {state.step} of {TOTAL_SETUP_STEPS}
+            </p>
+            <div className="h-1 rounded-full bg-surface overflow-hidden">
+              <div
+                className="h-full bg-muted rounded-full transition-all duration-300"
+                style={{
+                  width: `${(state.step / TOTAL_SETUP_STEPS) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+
           {state.step > 1 && (
             <button
               onClick={goBack}
@@ -63,26 +99,31 @@ export default function Onboarding() {
           {state.step === 1 && <StepWelcome onContinue={advance} />}
 
           {state.step === 2 && (
-            <StepText
+            <StepTextWithExamples
               question="What's one goal you want to make progress on?"
               placeholder="Learn Spanish, run a marathon, write a book..."
               value={input}
               onChange={setInput}
               onContinue={advance}
               canContinue={canContinue}
+              examples={goalExamples}
+              onRefresh={() => setGoalExamples(sample(GOAL_EXAMPLES, 4))}
               scienceNote={SCIENCE_NOTES.goal}
               showScience={state.showScience}
             />
           )}
 
           {state.step === 3 && (
-            <StepText
+            <StepTextWithExamples
               question="Why does this matter to you?"
               placeholder="In your own words — the reason underneath it..."
               value={input}
               onChange={setInput}
               onContinue={advance}
               canContinue={canContinue}
+              examples={whyExamples}
+              loading={whyLoading}
+              onRefresh={() => fetchWhyExamples(state.goal)}
               scienceNote={SCIENCE_NOTES.why}
               showScience={state.showScience}
             />
@@ -163,13 +204,18 @@ function StepWelcome({ onContinue }: { onContinue: () => void }) {
   );
 }
 
-function StepText({
+// A free-text step (goal, why). The text box is the primary way to answer;
+// optional example chips sit below it.
+function StepTextWithExamples({
   question,
   placeholder,
   value,
   onChange,
   onContinue,
   canContinue,
+  examples,
+  loading = false,
+  onRefresh,
   scienceNote,
   showScience,
 }: {
@@ -179,6 +225,9 @@ function StepText({
   onChange: (v: string) => void;
   onContinue: () => void;
   canContinue: boolean;
+  examples: string[];
+  loading?: boolean;
+  onRefresh: () => void;
   scienceNote: string;
   showScience: boolean;
 }) {
@@ -196,12 +245,66 @@ function StepText({
         autoFocus
         className="w-full text-lg bg-transparent border-b-2 border-border pb-2 outline-none focus:border-accent transition-colors placeholder:text-faint"
       />
+
+      <ExampleChips
+        examples={examples}
+        loading={loading}
+        onRefresh={onRefresh}
+        onPick={onChange}
+      />
+
       <div className="mt-8">
         <PrimaryButton onClick={onContinue} disabled={!canContinue}>
           Continue
         </PrimaryButton>
       </div>
       <ScienceNote show={showScience} text={scienceNote} />
+    </div>
+  );
+}
+
+// Optional example suggestions below the text input, with a refresh button.
+// Tapping one fills the input; the text box stays the main path.
+function ExampleChips({
+  examples,
+  loading,
+  onRefresh,
+  onPick,
+}: {
+  examples: string[];
+  loading: boolean;
+  onRefresh: () => void;
+  onPick: (v: string) => void;
+}) {
+  return (
+    <div className="mt-6">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
+          Or start from an example
+        </span>
+        <button
+          onClick={onRefresh}
+          aria-label="Show different examples"
+          className="text-muted hover:text-foreground transition-colors"
+        >
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+        </button>
+      </div>
+      {loading && examples.length === 0 ? (
+        <p className="text-sm text-faint">Finding a few examples…</p>
+      ) : examples.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {examples.map((ex) => (
+            <button
+              key={ex}
+              onClick={() => onPick(ex)}
+              className="px-3 py-1.5 rounded-full border border-border bg-surface text-sm text-muted hover:text-foreground hover:border-muted transition-colors"
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

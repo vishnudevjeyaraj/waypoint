@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useWaypoint } from "../../../lib/waypoint-context";
 import { SCIENCE_NOTES } from "../../../lib/waypoint";
-import { ScienceNote } from "../../../components/ui";
+import { ScienceNote, usePageTitle } from "../../../components/ui";
 
 export default function ProfilePage() {
   const { state, startOver, toggleScience } = useWaypoint();
+  usePageTitle("Profile · Waypoint");
 
   return (
     <div>

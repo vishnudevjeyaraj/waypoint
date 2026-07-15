@@ -2,8 +2,26 @@
 
 // Shared presentational primitives used across onboarding and the app pages.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CompletionStatus } from "../lib/waypoint";
+
+// Sets the browser tab title for the current page.
+export function usePageTitle(title: string) {
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+}
+
+// A calm full-screen loader while state hydrates — avoids a blank flash.
+export function Loading() {
+  return (
+    <main className="flex-1 flex items-center justify-center">
+      <p className="text-lg font-semibold tracking-tight text-muted animate-pulse">
+        Waypoint
+      </p>
+    </main>
+  );
+}
 
 // The one accent-colored control: reserved for the primary action on a screen.
 export function PrimaryButton({
