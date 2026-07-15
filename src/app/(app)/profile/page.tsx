@@ -38,11 +38,6 @@ export default function ProfilePage() {
           </div>
           <Switch checked={state.showScience} onClick={toggleScience} />
         </div>
-        <ScienceNote
-          show={state.showScience}
-          text={SCIENCE_NOTES.horizons}
-          label="Why this page"
-        />
       </div>
 
       {/* Start over — destructive, behind the disengagement reflection. */}

@@ -52,7 +52,7 @@ export default function ProgressPage() {
       <ScienceNote
         show={state.showScience}
         text={SCIENCE_NOTES.weekly}
-        label="Why there's no streak"
+        label="Why this page"
       />
     </div>
   );

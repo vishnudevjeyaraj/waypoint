@@ -91,8 +91,8 @@ export default function TodayPage() {
               </p>
               <ScienceNote
                 show={state.showScience}
-                text={SCIENCE_NOTES.weekly}
-                label="Why there's no streak"
+                text={SCIENCE_NOTES.progress}
+                label="Why this page"
               />
             </div>
           )}

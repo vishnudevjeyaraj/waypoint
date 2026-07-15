@@ -52,7 +52,7 @@ export default function RoutePage() {
       <ScienceNote
         show={state.showScience}
         text={SCIENCE_NOTES.horizons}
-        label="Why only today is emphasized"
+        label="Why this page"
       />
     </div>
   );
