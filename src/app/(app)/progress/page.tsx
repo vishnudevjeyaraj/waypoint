@@ -9,7 +9,7 @@ export default function ProgressPage() {
   const status = completionStatus(state.completedDates);
 
   // Three contextual states: approaching a second miss, a single earlier miss,
-  // or on track. Uses only the reliable weekly signals.
+  // or on track — using only the reliable weekly signals.
   const completedBeforeToday = status.weekCount - (status.doneToday ? 1 : 0);
   const missedBeforeToday = Math.max(0, status.todayIndex - completedBeforeToday);
 
@@ -19,10 +19,12 @@ export default function ProgressPage() {
         Progress
       </h1>
 
-      <div className="rounded-[16px] border border-border bg-surface p-5 md:p-6">
-        <p className="text-sm text-muted mb-5">This week</p>
+      <div className="rounded-[16px] border border-border bg-surface p-6">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-5">
+          This week
+        </p>
         <WeekDots status={status} size="lg" labels />
-        <p className="text-base text-foreground mt-5">
+        <p className="text-base text-foreground mt-6">
           {status.weekCount} of 7 days
         </p>
       </div>
