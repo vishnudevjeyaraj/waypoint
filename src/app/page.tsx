@@ -476,7 +476,7 @@ function SafetyScreen({
 // dashed line. Done = muted fill, current = accent, upcoming = hollow.
 function RouteRail({ current, total }: { current: number; total: number }) {
   return (
-    <div className="fixed left-6 sm:left-10 top-1/2 -translate-y-1/2 flex flex-col items-center">
+    <div className="fixed left-6 sm:left-10 top-1/2 -translate-y-1/2 hidden sm:flex flex-col items-center">
       {Array.from({ length: total }).map((_, i) => {
         const step = i + 1;
         const status =
