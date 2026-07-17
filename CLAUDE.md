@@ -3,7 +3,7 @@
 # Waypoint Master Research Document
 *Living document — update as research and decisions evolve*
 
-Last updated: July 9, 2026 (added First-Run Experience blueprint; competitor UI/UX research)
+Last updated: July 17, 2026 (added Implementation Notes — Decomposition Engine v2: milestone model, one-off/habit steps, target-date pacing; deadline/gamification/onboarding-friction research)
 
 ---
 
@@ -283,6 +283,34 @@ Goal capture comes **before** intake. The science requires intention/values *bef
 
 ### Design principle carried through every stage
 Only ever one thing is asked for, and only ever one thing is emphasized. Simplicity is enforced structurally (progressive disclosure), not just visually.
+
+---
+
+## Implementation Notes — Decomposition Engine (v2)
+*How the built engine works today, so future changes stay consistent. Lives here because the schema encodes several of the research decisions above.*
+
+### Data model
+The AI decomposition (`/api/breakdown`) takes `{ goal, why, timePerWeek, targetDate }` and returns:
+- **`milestones: [{ title, detail }]`** — an ordered list of concrete checkpoints from *now → goal*. This is the user's **route**, and it is fully **editable** on the Route page (edit / add / remove; SDT autonomy — a plan that feels like yours raises commitment). Stored with an `id` and `done` flag.
+- **`steps: [{ text, type }]`** — 5–7 small **daily** actions laddering toward the *nearest* incomplete milestone. The first is today's step.
+
+A second API mode (`nextMilestone` in the request) returns `steps` only — used when the user finishes a milestone ("plan next steps") and when they hit **"re-optimize with AI"** (regenerate the daily steps to fit their edited route, keeping their milestone edits).
+
+### Step types — one-off vs. habit
+Each step is typed:
+- **`one-off`** = a task done once (e.g. "buy a guitar", "book a lesson"). Shown with the checkbox, no recurring cue.
+- **`habit`** = a repeating action (e.g. "practice 15 minutes"). Gets a small "habit" tag and **connects to the if-then cue** (habit stacking / implementation intentions). Many goals start one-off (setup) and become habitual — the engine labels each honestly rather than forcing one type.
+
+### Target date — a *pacing* input, not a deadline
+The target date (1 month / 3 months / 6 months / 1 year+) scopes how far the route stretches and how tightly milestones are spaced (shorter → fewer, tighter milestones). It is deliberately **not** framed as a pressure deadline. Rationale: self-imposed deadlines curb procrastination but people set them poorly (Ariely & Wertenbroch 2002; a 2025 replication found weak effects); what reliably helps is **evenly-spaced intermediate** milestones. Pairs with TMT's Delay term and the false-hope/over-ambition guard.
+
+### Newer research applied (2026 UI/engine pass)
+- **Deadlines** → target date as pacing, not pressure (above).
+- **Gamification / "less bland"** → ground engagement in SDT **competence** (visible progress: the route fills in behind you) and **autonomy** (editable route), *not* points/badges. Meta-analyses show an "engagement–efficacy gap" and real harms from manipulative persuasive design.
+- **Guest-first onboarding** → forced signup is the most expensive onboarding mistake (~26% abandon; guest mode lifts activation 15–35%). The app is guest-first; login is deferred.
+- **"Show the science" / educational** → providing a rationale in an autonomy-supportive way is itself an evidence-based motivator (SDT), so the science panel is a mechanism, not decoration.
+
+*Citations for this pass: Ariely & Wertenbroch (2002, Psych Science 13:219); gamification-in-health meta-analyses (ScienceDirect S1874944524001035; PMC8391751 on SDT); onboarding/registration-friction evidence; SDT autonomy-support & rationale (PMC2483280). Verify exact figures against primary sources before any public-facing claim.*
 
 ---
 
