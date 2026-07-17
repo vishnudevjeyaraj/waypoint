@@ -141,6 +141,8 @@ export const SCIENCE_NOTES = {
   why: "Connecting a goal to a personal value keeps you acting even on days you don't feel motivated, rather than waiting to feel ready. We bring this back when your motivation dips.",
   hours: "This sizes every task to the time you actually have. Most goal-setting failure comes from over-ambition — steps that don't fit real life.",
   plan: "Picturing what you want and then naming the real obstacle — called mental contrasting — works better than imagining success alone, which tends to backfire. Pairing that with a specific plan for when you'll act, and what you'll do when it gets hard, is one of the most reliable ways to turn intention into action.",
+  autonomy:
+    "Shaping your own route — editing, adding, or removing milestones — isn't just convenience. When a plan feels like yours, you commit to it more and stick with it longer; self-determination research calls this autonomy, one of the most durable sources of motivation.",
   horizons:
     "Your full route is here whenever you want it, but only today's step is asked of you. Goal-setting research finds that near-term subgoals — not distant ones — are what actually build momentum and the belief that you can follow through.",
   progress:
@@ -323,12 +325,17 @@ export function deCap(s: string): string {
   return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 }
 
+// A short unique id for a milestone.
+export function makeId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // Wraps raw AI milestones ({title, detail}) into stored Milestones with ids.
 export function buildMilestones(
   raw: { title: string; detail: string }[]
 ): Milestone[] {
   return raw.map((m) => ({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: makeId(),
     title: m.title,
     detail: m.detail,
     done: false,

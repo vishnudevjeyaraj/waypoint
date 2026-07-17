@@ -144,7 +144,10 @@ const PANEL_NOTES: Record<string, { label: string; text: string }[]> = {
     { label: "One step at a time", text: SCIENCE_NOTES.progress },
     { label: "No streaks, on purpose", text: SCIENCE_NOTES.weekly },
   ],
-  "/route": [{ label: "Why a route", text: SCIENCE_NOTES.horizons }],
+  "/route": [
+    { label: "Why a route", text: SCIENCE_NOTES.horizons },
+    { label: "Make it yours", text: SCIENCE_NOTES.autonomy },
+  ],
   "/progress": [{ label: "No streaks, on purpose", text: SCIENCE_NOTES.weekly }],
 };
 

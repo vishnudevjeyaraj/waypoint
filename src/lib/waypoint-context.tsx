@@ -20,6 +20,7 @@ import {
   buildMilestones,
   clearState,
   loadState,
+  makeId,
   nearestMilestoneIndex,
   saveState,
   todayKey,
@@ -53,6 +54,12 @@ interface WaypointContextValue {
   toggleToday: () => void;
   logFeeling: (feeling: Feeling) => void;
   editStep: (index: number, text: string) => void;
+  // editable route (Route timeline)
+  editMilestone: (id: string, updates: { title?: string; detail?: string }) => void;
+  addMilestone: (title: string, detail: string) => void;
+  removeMilestone: (id: string) => void;
+  reoptimize: () => void;
+  reoptimizing: boolean;
   startOver: () => void;
   toggleScience: () => void;
 }
@@ -68,6 +75,7 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
   const [safety, setSafety] = useState<Safety | null>(null);
   const [whyExamples, setWhyExamples] = useState<string[]>([]);
   const [whyLoading, setWhyLoading] = useState(false);
+  const [reoptimizing, setReoptimizing] = useState(false);
 
   // Generate first-person "why" suggestions tailored to the goal. Prefetched
   // when leaving the goal step, and re-callable via the refresh button.
@@ -290,6 +298,68 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  function editMilestone(
+    id: string,
+    updates: { title?: string; detail?: string }
+  ) {
+    setState((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((m) =>
+        m.id === id ? { ...m, ...updates } : m
+      ),
+    }));
+  }
+
+  function addMilestone(title: string, detail: string) {
+    if (!title.trim()) return;
+    setState((prev) => ({
+      ...prev,
+      milestones: [
+        ...prev.milestones,
+        { id: makeId(), title: title.trim(), detail: detail.trim(), done: false },
+      ],
+    }));
+  }
+
+  function removeMilestone(id: string) {
+    setState((prev) => ({
+      ...prev,
+      milestones: prev.milestones.filter((m) => m.id !== id),
+    }));
+  }
+
+  // Regenerate the daily steps to fit the user's edited route (toward the
+  // nearest milestone). Their milestone edits are kept; only the steps refresh.
+  async function reoptimize() {
+    const idx = nearestMilestoneIndex(state.milestones);
+    const next = state.milestones[idx];
+    if (!next) return;
+    const done = state.milestones.slice(0, idx).map((m) => m.title);
+    setReoptimizing(true);
+    try {
+      const res = await fetch("/api/breakdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: state.goal,
+          why: state.why,
+          timePerWeek: state.timePerWeek,
+          targetDate: state.targetDate,
+          nextMilestone: { title: next.title, detail: next.detail },
+          doneMilestones: done,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && Array.isArray(data?.steps)) {
+        setState((prev) => ({ ...prev, steps: data.steps, stepsDone: 0 }));
+      }
+    } catch {
+      // Non-fatal: keep the existing steps.
+    } finally {
+      setReoptimizing(false);
+    }
+  }
+
   function startOver() {
     setState((prev) => ({ ...INITIAL_STATE, showScience: prev.showScience }));
     setInput("");
@@ -322,6 +392,11 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     toggleToday,
     logFeeling,
     editStep,
+    editMilestone,
+    addMilestone,
+    removeMilestone,
+    reoptimize,
+    reoptimizing,
     startOver,
     toggleScience,
   };

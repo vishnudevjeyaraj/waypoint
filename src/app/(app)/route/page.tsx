@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { useWaypoint } from "../../../lib/waypoint-context";
-import { stepProgress } from "../../../lib/waypoint";
+import { Milestone, stepProgress } from "../../../lib/waypoint";
 import { usePageTitle } from "../../../components/ui";
 
 export default function RoutePage() {
-  const { state, editStep } = useWaypoint();
+  const {
+    state,
+    editStep,
+    editMilestone,
+    addMilestone,
+    removeMilestone,
+    reoptimize,
+    reoptimizing,
+  } = useWaypoint();
   usePageTitle("Route · Waypoint");
 
   const total = state.steps.length;
@@ -36,53 +44,63 @@ export default function RoutePage() {
         </Waypoint>
 
         {milestones.map((m, i) => (
-          <Waypoint
+          <MilestoneWaypoint
             key={m.id}
-            done={m.done}
-            isLast={i === milestones.length - 1}
-          >
-            <div className="pt-0.5">
-              <p className="text-[11px] uppercase tracking-[0.08em] text-muted">
-                Milestone {i + 1}
-              </p>
-              <p
-                className={`text-base leading-relaxed mt-1.5 ${
-                  m.done ? "text-muted line-through" : ""
-                }`}
-              >
-                {m.title}
-              </p>
-              {m.detail && (
-                <p className="text-sm text-muted mt-1 leading-relaxed">
-                  {m.detail}
-                </p>
-              )}
-            </div>
-          </Waypoint>
+            milestone={m}
+            index={i}
+            isLast={false}
+            onEdit={editMilestone}
+            onRemove={removeMilestone}
+          />
         ))}
+
+        {/* Add-a-milestone lives at the end of the trail. */}
+        <Waypoint isLast add>
+          <AddMilestone onAdd={addMilestone} />
+        </Waypoint>
+      </div>
+
+      {/* Re-optimize keeps the user's milestone edits and regenerates the daily
+          steps to fit them. Neutral styling — the accent stays on the trail. */}
+      <div className="mt-10 pt-8 border-t border-border">
+        <button
+          onClick={reoptimize}
+          disabled={reoptimizing}
+          className="px-5 py-2.5 rounded-[10px] border border-border bg-surface hover:bg-surface-hover text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {reoptimizing ? "Re-optimizing…" : "Re-optimize with AI"}
+        </button>
+        <p className="text-sm text-muted mt-3 leading-relaxed">
+          Regenerates today&apos;s steps to fit any changes you&apos;ve made to
+          your route.
+        </p>
       </div>
     </div>
   );
 }
 
-// One stop on the trail: a dot (accent for the nearest step, muted otherwise)
-// with a connecting line down to the next, and the content to the right.
+// One stop on the trail: a dot (accent = nearest step, muted = done, hollow =
+// upcoming) with a connecting line down to the next, and content to the right.
 function Waypoint({
   children,
   accent = false,
   done = false,
+  add = false,
   isLast = false,
 }: {
   children: React.ReactNode;
   accent?: boolean;
   done?: boolean;
+  add?: boolean;
   isLast?: boolean;
 }) {
   const dot = accent
     ? "bg-accent border-accent"
     : done
       ? "bg-muted border-muted"
-      : "bg-bg border-border";
+      : add
+        ? "bg-bg border-dashed border-border"
+        : "bg-bg border-border";
   return (
     <div className="flex gap-4">
       <div className="flex flex-col items-center pt-1">
@@ -167,6 +185,173 @@ function NearestStep({
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// An editable / removable milestone on the trail.
+function MilestoneWaypoint({
+  milestone,
+  index,
+  isLast,
+  onEdit,
+  onRemove,
+}: {
+  milestone: Milestone;
+  index: number;
+  isLast: boolean;
+  onEdit: (id: string, updates: { title?: string; detail?: string }) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(milestone.title);
+  const [detail, setDetail] = useState(milestone.detail);
+
+  return (
+    <Waypoint done={milestone.done} isLast={isLast}>
+      <div className="pt-0.5">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-1">
+          Milestone {index + 1}
+        </p>
+
+        {editing ? (
+          <div>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              className="w-full bg-transparent border border-border rounded-[10px] px-3 py-2 text-base outline-none focus:border-accent transition-colors mb-2"
+            />
+            <textarea
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              rows={2}
+              placeholder="Optional detail…"
+              className="w-full bg-transparent border border-border rounded-[10px] px-3 py-2 text-sm leading-relaxed outline-none focus:border-accent transition-colors resize-none placeholder:text-faint"
+            />
+            <div className="flex items-center gap-5 mt-2">
+              <button
+                onClick={() => {
+                  if (!title.trim()) return;
+                  onEdit(milestone.id, {
+                    title: title.trim(),
+                    detail: detail.trim(),
+                  });
+                  setEditing(false);
+                }}
+                disabled={!title.trim()}
+                className="text-sm font-medium text-foreground hover:opacity-70 transition-opacity disabled:opacity-35"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setTitle(milestone.title);
+                  setDetail(milestone.detail);
+                  setEditing(false);
+                }}
+                className="text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p
+              className={`text-base leading-relaxed ${
+                milestone.done ? "text-muted line-through" : ""
+              }`}
+            >
+              {milestone.title}
+            </p>
+            {milestone.detail && (
+              <p className="text-sm text-muted mt-1 leading-relaxed">
+                {milestone.detail}
+              </p>
+            )}
+            <div className="flex items-center gap-5 mt-2">
+              <button
+                onClick={() => {
+                  setTitle(milestone.title);
+                  setDetail(milestone.detail);
+                  setEditing(true);
+                }}
+                className="text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => onRemove(milestone.id)}
+                className="text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Waypoint>
+  );
+}
+
+// Appends a new milestone to the end of the route.
+function AddMilestone({ onAdd }: { onAdd: (title: string, detail: string) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+
+  if (!adding) {
+    return (
+      <button
+        onClick={() => setAdding(true)}
+        className="text-sm text-muted hover:text-foreground transition-colors pt-0.5"
+      >
+        Add a milestone
+      </button>
+    );
+  }
+
+  return (
+    <div className="pt-0.5">
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        autoFocus
+        placeholder="New milestone…"
+        className="w-full bg-transparent border border-border rounded-[10px] px-3 py-2 text-base outline-none focus:border-accent transition-colors placeholder:text-faint"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && title.trim()) {
+            onAdd(title, "");
+            setTitle("");
+            setAdding(false);
+          }
+        }}
+      />
+      <div className="flex items-center gap-5 mt-2">
+        <button
+          onClick={() => {
+            if (!title.trim()) return;
+            onAdd(title, "");
+            setTitle("");
+            setAdding(false);
+          }}
+          disabled={!title.trim()}
+          className="text-sm font-medium text-foreground hover:opacity-70 transition-opacity disabled:opacity-35"
+        >
+          Add
+        </button>
+        <button
+          onClick={() => {
+            setTitle("");
+            setAdding(false);
+          }}
+          className="text-sm text-muted hover:text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
