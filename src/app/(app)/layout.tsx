@@ -14,7 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { state, loaded } = useWaypoint();
 
   useEffect(() => {
-    if (loaded && !hasGoal(state)) router.replace("/");
+    if (loaded && !hasGoal(state)) router.replace("/start");
   }, [loaded, state, router]);
 
   if (!loaded) return <Loading />;

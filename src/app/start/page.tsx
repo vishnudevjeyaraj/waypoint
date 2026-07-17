@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
-import { hasGoal, useWaypoint } from "../lib/waypoint-context";
+import { hasGoal, useWaypoint } from "../../lib/waypoint-context";
 import {
   CUE_OPTIONS,
   GOAL_EXAMPLES,
@@ -20,14 +20,14 @@ import {
   TOTAL_SETUP_STEPS,
   deCap,
   sample,
-} from "../lib/waypoint";
+} from "../../lib/waypoint";
 import {
   ChoiceButtons,
   Loading,
   PrimaryButton,
   ScienceNote,
   usePageTitle,
-} from "../components/ui";
+} from "../../components/ui";
 
 export default function Onboarding() {
   const router = useRouter();

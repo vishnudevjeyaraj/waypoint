@@ -58,6 +58,32 @@ body {
   color: var(--text);
 }
 
+/* Landing "route" visual: the trail draws in, waypoints pop, the goal pulses. */
+@keyframes draw-path {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes wp-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes wp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 /* Calm page transition on route change (see spec §5) — no bouncy easing. */
 @keyframes fade-in {
   from {
