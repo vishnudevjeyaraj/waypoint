@@ -7,11 +7,21 @@
 
 // --- Types ---
 
-export interface Breakdown {
-  year: string;
-  quarter: string;
-  month: string;
-  week: string;
+// A checkpoint on the route from now to the goal. The ordered list of these is
+// the user-editable timeline (Route page). Paced by the target date.
+export interface Milestone {
+  id: string;
+  title: string; // short label, e.g. "Hold five open chords cleanly"
+  detail: string; // one-sentence description
+  done: boolean;
+}
+
+// A single daily action toward the nearest milestone. "one-off" = a task done
+// once (e.g. "buy a guitar"); "habit" = a repeating action (e.g. "practice 15
+// minutes") — habits are what connect to the if-then cue.
+export interface Step {
+  text: string;
+  type: "one-off" | "habit";
 }
 
 // The user's if-then plan (the "signature interaction").
@@ -33,12 +43,13 @@ export interface Safety {
 }
 
 export interface WaypointState {
-  step: number; // which setup step (1-6) the user is on
+  step: number; // which setup step (1-7) the user is on
   goal: string;
+  targetDate: string; // when they want to reach it (scopes the pacing)
   why: string;
   timePerWeek: string;
-  breakdown: Breakdown | null;
-  steps: string[]; // ordered daily steps laddering to the week milestone
+  milestones: Milestone[]; // the ordered route from now to the goal
+  steps: Step[]; // ordered daily steps laddering to the nearest milestone
   stepsDone: number; // how many steps of the current ladder are complete
   plan: Plan;
   phase: Phase;
@@ -52,16 +63,17 @@ export type Feeling = "good" | "okay" | "hard";
 
 // --- Constants ---
 
-// Bumped from "waypoint" so the reshaped state doesn't collide with older saves.
-export const STORAGE_KEY = "waypoint-v3";
-export const TOTAL_SETUP_STEPS = 6;
+// Bumped from "waypoint-v3" so the reshaped state (milestones) doesn't collide.
+export const STORAGE_KEY = "waypoint-v4";
+export const TOTAL_SETUP_STEPS = 7;
 
 export const INITIAL_STATE: WaypointState = {
   step: 1,
   goal: "",
+  targetDate: "",
   why: "",
   timePerWeek: "",
-  breakdown: null,
+  milestones: [],
   steps: [],
   stepsDone: 0,
   plan: { cue: "", obstacle: "", fallback: "" },
@@ -72,6 +84,14 @@ export const INITIAL_STATE: WaypointState = {
 };
 
 export const HOURS_OPTIONS = ["~1 hour", "~3 hours", "~5 hours", "10+ hours"];
+
+// How far out the goal is — scopes the pacing of the milestone route.
+export const TARGET_DATE_OPTIONS = [
+  "1 month",
+  "3 months",
+  "6 months",
+  "1 year+",
+];
 
 // A curated pool of example goals for the onboarding goal step. The user sees a
 // random handful of these below the text box, refreshable for a new set.
@@ -113,20 +133,11 @@ export const CUE_OPTIONS = [
   "Before bed",
 ];
 
-// The five horizon views, in order. "today" is always the emphasized default.
-export const HORIZONS = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "Week" },
-  { key: "month", label: "Month" },
-  { key: "quarter", label: "Quarter" },
-  { key: "year", label: "Year" },
-] as const;
-
-export type HorizonKey = (typeof HORIZONS)[number]["key"];
-
 // Short research notes revealed by the "Show the science" toggle.
 export const SCIENCE_NOTES = {
   goal: "We accept any goal, however vague. The breakdown is what turns it concrete — that specificity is one of the most reliable predictors of follow-through in goal-setting research.",
+  target:
+    "A rough timeframe isn't a pressure deadline — it just tells us how to pace your route. What actually helps is spacing milestones evenly, so the payoff never feels too far off. We keep the expectations honest, not rushed.",
   why: "Connecting a goal to a personal value keeps you acting even on days you don't feel motivated, rather than waiting to feel ready. We bring this back when your motivation dips.",
   hours: "This sizes every task to the time you actually have. Most goal-setting failure comes from over-ambition — steps that don't fit real life.",
   plan: "Picturing what you want and then naming the real obstacle — called mental contrasting — works better than imagining success alone, which tends to backfire. Pairing that with a specific plan for when you'll act, and what you'll do when it gets hard, is one of the most reliable ways to turn intention into action.",
@@ -281,6 +292,7 @@ export function loadState(): WaypointState {
       ...INITIAL_STATE,
       ...saved,
       plan: { ...INITIAL_STATE.plan, ...(saved.plan ?? {}) },
+      milestones: saved.milestones ?? [],
       steps: saved.steps ?? [],
       stepsDone: saved.stepsDone ?? 0,
       completedDates: saved.completedDates ?? [],
@@ -309,4 +321,23 @@ export function clearState(): void {
 // ("After dinner" -> "when after dinner, I will...").
 export function deCap(s: string): string {
   return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+}
+
+// Wraps raw AI milestones ({title, detail}) into stored Milestones with ids.
+export function buildMilestones(
+  raw: { title: string; detail: string }[]
+): Milestone[] {
+  return raw.map((m) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: m.title,
+    detail: m.detail,
+    done: false,
+  }));
+}
+
+// Index of the nearest not-yet-done milestone (the one the daily steps ladder
+// toward). Returns the last index if all are done.
+export function nearestMilestoneIndex(milestones: Milestone[]): number {
+  const i = milestones.findIndex((m) => !m.done);
+  return i === -1 ? Math.max(0, milestones.length - 1) : i;
 }

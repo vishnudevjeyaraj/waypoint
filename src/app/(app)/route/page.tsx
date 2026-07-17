@@ -9,17 +9,10 @@ export default function RoutePage() {
   const { state, editStep } = useWaypoint();
   usePageTitle("Route · Waypoint");
 
-  const breakdown = state.breakdown!;
   const total = state.steps.length;
-  const nearestIdx = Math.min(state.stepsDone, total - 1);
-  const nearest = state.steps[nearestIdx] ?? "";
-
-  const tiers: [string, string][] = [
-    ["This week", breakdown.week],
-    ["This month", breakdown.month],
-    ["This quarter", breakdown.quarter],
-    ["This year", breakdown.year],
-  ];
+  const nearestIdx = Math.min(state.stepsDone, Math.max(0, total - 1));
+  const nearest = state.steps[nearestIdx]?.text ?? "";
+  const milestones = state.milestones;
 
   return (
     <div>
@@ -42,13 +35,28 @@ export default function RoutePage() {
           />
         </Waypoint>
 
-        {tiers.map(([label, text], i) => (
-          <Waypoint key={label} isLast={i === tiers.length - 1}>
+        {milestones.map((m, i) => (
+          <Waypoint
+            key={m.id}
+            done={m.done}
+            isLast={i === milestones.length - 1}
+          >
             <div className="pt-0.5">
               <p className="text-[11px] uppercase tracking-[0.08em] text-muted">
-                {label}
+                Milestone {i + 1}
               </p>
-              <p className="text-base leading-relaxed mt-1.5">{text}</p>
+              <p
+                className={`text-base leading-relaxed mt-1.5 ${
+                  m.done ? "text-muted line-through" : ""
+                }`}
+              >
+                {m.title}
+              </p>
+              {m.detail && (
+                <p className="text-sm text-muted mt-1 leading-relaxed">
+                  {m.detail}
+                </p>
+              )}
             </div>
           </Waypoint>
         ))}
@@ -62,20 +70,23 @@ export default function RoutePage() {
 function Waypoint({
   children,
   accent = false,
+  done = false,
   isLast = false,
 }: {
   children: React.ReactNode;
   accent?: boolean;
+  done?: boolean;
   isLast?: boolean;
 }) {
+  const dot = accent
+    ? "bg-accent border-accent"
+    : done
+      ? "bg-muted border-muted"
+      : "bg-bg border-border";
   return (
     <div className="flex gap-4">
       <div className="flex flex-col items-center pt-1">
-        <span
-          className={`w-3 h-3 rounded-full border-2 ${
-            accent ? "bg-accent border-accent" : "bg-bg border-border"
-          }`}
-        />
+        <span className={`w-3 h-3 rounded-full border-2 ${dot}`} />
         {!isLast && <span className="w-px flex-1 bg-border my-1.5" />}
       </div>
       <div className={`flex-1 ${isLast ? "" : "pb-8"}`}>{children}</div>

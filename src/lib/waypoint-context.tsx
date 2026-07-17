@@ -12,14 +12,15 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Breakdown,
   Feeling,
   INITIAL_STATE,
   Plan,
   Safety,
   WaypointState,
+  buildMilestones,
   clearState,
   loadState,
+  nearestMilestoneIndex,
   saveState,
   todayKey,
 } from "./waypoint";
@@ -40,6 +41,7 @@ interface WaypointContextValue {
     goal: string;
     why: string;
     timePerWeek: string;
+    targetDate: string;
   }) => void;
   finishPlan: (plan: Plan) => void;
   // AI-suggested "why" reasons, tailored to the goal
@@ -113,14 +115,16 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
         return;
       }
       setState((prev) => {
-        const keep = isContinuation ? prev.breakdown : null;
-        const breakdown: Breakdown = {
-          year: keep ? keep.year : data.year,
-          quarter: keep ? keep.quarter : data.quarter,
-          month: keep ? keep.month : data.month,
-          week: data.week,
+        if (isContinuation) {
+          // Steps toward the next milestone; milestones already updated.
+          return { ...prev, steps: data.steps, stepsDone: 0 };
+        }
+        return {
+          ...prev,
+          milestones: buildMilestones(data.milestones),
+          steps: data.steps,
+          stepsDone: 0,
         };
-        return { ...prev, breakdown, steps: data.steps, stepsDone: 0 };
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -133,22 +137,38 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     goal: string;
     why: string;
     timePerWeek: string;
+    targetDate: string;
   }) {
     requestBreakdown(data, false);
   }
 
+  // Finished the steps toward the nearest milestone: mark it done, then fetch
+  // daily steps toward the next one (or finish, if it was the last).
   function planNext() {
-    requestBreakdown(
-      {
-        goal: state.goal,
-        why: state.why,
-        timePerWeek: state.timePerWeek,
-        previousWeek: state.breakdown?.week,
-        completedSteps: state.steps,
-        monthGoal: state.breakdown?.month,
-      },
-      true
-    );
+    const idx = nearestMilestoneIndex(state.milestones);
+    const next = state.milestones[idx + 1];
+    const done = state.milestones.slice(0, idx + 1).map((m) => m.title);
+
+    setState((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((m, i) =>
+        i === idx ? { ...m, done: true } : m
+      ),
+    }));
+
+    if (next) {
+      requestBreakdown(
+        {
+          goal: state.goal,
+          why: state.why,
+          timePerWeek: state.timePerWeek,
+          targetDate: state.targetDate,
+          nextMilestone: { title: next.title, detail: next.detail },
+          doneMilestones: done,
+        },
+        true
+      );
+    }
   }
 
   // Load once on mount.
@@ -158,15 +178,17 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     if (saved.phase === "setup") {
       const fields: Record<number, string> = {
         2: saved.goal,
-        3: saved.why,
-        4: saved.timePerWeek,
+        3: saved.targetDate,
+        4: saved.why,
+        5: saved.timePerWeek,
       };
       setInput(fields[saved.step] ?? "");
-      if (saved.step === 5 && !saved.breakdown) {
+      if (saved.step === 6 && saved.milestones.length === 0) {
         fetchBreakdown({
           goal: saved.goal,
           why: saved.why,
           timePerWeek: saved.timePerWeek,
+          targetDate: saved.targetDate,
         });
       }
     }
@@ -184,16 +206,23 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     setState((prev) => {
       const next = { ...prev, step: prev.step + 1 };
       if (prev.step === 2) next.goal = value;
-      if (prev.step === 3) next.why = value;
-      if (prev.step === 4) next.timePerWeek = value;
+      if (prev.step === 3) next.targetDate = value;
+      if (prev.step === 4) next.why = value;
+      if (prev.step === 5) next.timePerWeek = value;
       return next;
     });
     // Leaving the goal step: prefetch tailored "why" suggestions.
     if (state.step === 2) {
       fetchWhyExamples(value);
     }
-    if (state.step === 4) {
-      fetchBreakdown({ goal: state.goal, why: state.why, timePerWeek: value });
+    // Leaving the hours step: we now have everything to build the route.
+    if (state.step === 5) {
+      fetchBreakdown({
+        goal: state.goal,
+        why: state.why,
+        timePerWeek: value,
+        targetDate: state.targetDate,
+      });
     }
     setInput("");
   }
@@ -202,8 +231,9 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
     const target = state.step - 1;
     const fields: Record<number, string> = {
       2: state.goal,
-      3: state.why,
-      4: state.timePerWeek,
+      3: state.targetDate,
+      4: state.why,
+      5: state.timePerWeek,
     };
     setInput(fields[target] ?? "");
     setState((prev) => ({ ...prev, step: target }));
@@ -213,7 +243,7 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
   function changeGoal() {
     setSafety(null);
     setInput(state.goal);
-    setState((p) => ({ ...p, step: 2, breakdown: null, steps: [] }));
+    setState((p) => ({ ...p, step: 2, milestones: [], steps: [] }));
   }
 
   function finishPlan(plan: Plan) {
@@ -253,8 +283,9 @@ export function WaypointProvider({ children }: { children: ReactNode }) {
   function editStep(index: number, text: string) {
     setState((prev) => {
       if (index < 0 || index >= prev.steps.length || !text.trim()) return prev;
-      const steps = [...prev.steps];
-      steps[index] = text.trim();
+      const steps = prev.steps.map((s, i) =>
+        i === index ? { ...s, text: text.trim() } : s
+      );
       return { ...prev, steps };
     });
   }
@@ -310,5 +341,5 @@ export function useWaypoint(): WaypointContextValue {
 
 // Convenience: is onboarding complete (a real goal exists)?
 export function hasGoal(state: WaypointState): boolean {
-  return state.phase === "app" && state.breakdown !== null;
+  return state.phase === "app" && state.milestones.length > 0;
 }

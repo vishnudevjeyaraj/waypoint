@@ -8,13 +8,15 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { hasGoal, useWaypoint } from "../lib/waypoint-context";
 import {
-  Breakdown,
   CUE_OPTIONS,
   GOAL_EXAMPLES,
   HOURS_OPTIONS,
+  Milestone,
   Plan,
   Safety,
   SCIENCE_NOTES,
+  Step,
+  TARGET_DATE_OPTIONS,
   TOTAL_SETUP_STEPS,
   deCap,
   sample,
@@ -114,6 +116,19 @@ export default function Onboarding() {
           )}
 
           {state.step === 3 && (
+            <StepChoice
+              question="When do you want to achieve this by?"
+              options={TARGET_DATE_OPTIONS}
+              selected={input}
+              onSelect={setInput}
+              onContinue={advance}
+              canContinue={canContinue}
+              scienceNote={SCIENCE_NOTES.target}
+              showScience={state.showScience}
+            />
+          )}
+
+          {state.step === 4 && (
             <StepTextWithExamples
               question="Why does this matter to you?"
               placeholder="In your own words — the reason underneath it..."
@@ -129,7 +144,7 @@ export default function Onboarding() {
             />
           )}
 
-          {state.step === 4 && (
+          {state.step === 5 && (
             <StepChoice
               question="How many hours a week can you give this?"
               options={HOURS_OPTIONS}
@@ -142,12 +157,12 @@ export default function Onboarding() {
             />
           )}
 
-          {state.step === 5 &&
+          {state.step === 6 &&
             (safety ? (
               <SafetyScreen safety={safety} onChangeGoal={changeGoal} />
             ) : (
               <StepBreakdown
-                breakdown={state.breakdown}
+                milestones={state.milestones}
                 steps={state.steps}
                 loading={loading}
                 error={error}
@@ -156,6 +171,7 @@ export default function Onboarding() {
                     goal: state.goal,
                     why: state.why,
                     timePerWeek: state.timePerWeek,
+                    targetDate: state.targetDate,
                   })
                 }
                 onContinue={advance}
@@ -163,11 +179,11 @@ export default function Onboarding() {
               />
             ))}
 
-          {state.step === 6 && state.breakdown && (
+          {state.step === 7 && state.milestones.length > 0 && (
             <StepPlan
               goal={state.goal}
               why={state.why}
-              firstStep={state.steps[0] ?? ""}
+              firstStep={state.steps[0]?.text ?? ""}
               initial={state.plan}
               onFinish={finishPlan}
               showScience={state.showScience}
@@ -343,7 +359,7 @@ function StepChoice({
 }
 
 function StepBreakdown({
-  breakdown,
+  milestones,
   steps,
   loading,
   error,
@@ -351,8 +367,8 @@ function StepBreakdown({
   onContinue,
   showScience,
 }: {
-  breakdown: Breakdown | null;
-  steps: string[];
+  milestones: Milestone[];
+  steps: Step[];
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -376,26 +392,21 @@ function StepBreakdown({
     );
   }
 
-  if (!breakdown) return null;
-
-  const rows: [string, string][] = [
-    ["This year", breakdown.year],
-    ["This quarter", breakdown.quarter],
-    ["This month", breakdown.month],
-    ["This week", breakdown.week],
-  ];
+  if (milestones.length === 0) return null;
 
   return (
     <div>
       <p className="text-sm text-muted mb-3">Here's your route</p>
       <p className="text-sm text-muted mb-1">Today</p>
-      <p className="text-xl font-semibold leading-snug mb-8">{steps[0] ?? ""}</p>
+      <p className="text-xl font-semibold leading-snug mb-8">
+        {steps[0]?.text ?? ""}
+      </p>
 
       <div className="border-t border-border pt-6 space-y-3 text-sm">
-        {rows.map(([label, text]) => (
-          <div key={label}>
-            <span className="text-muted">{label}: </span>
-            <span>{text}</span>
+        {milestones.map((m, i) => (
+          <div key={m.id}>
+            <span className="text-muted">{i + 1}. </span>
+            <span>{m.title}</span>
           </div>
         ))}
       </div>

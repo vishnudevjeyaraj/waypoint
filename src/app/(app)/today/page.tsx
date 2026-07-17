@@ -29,7 +29,7 @@ export default function TodayPage() {
   const { steps, stepsDone, plan } = state;
   const allDone = stepsDone >= steps.length;
   const done = status.doneToday;
-  const task = steps[done ? Math.max(0, stepsDone - 1) : stepsDone] ?? "";
+  const currentStep = steps[done ? Math.max(0, stepsDone - 1) : stepsDone];
 
   const dateLabel = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -52,7 +52,7 @@ export default function TodayPage() {
         </p>
       ) : allDone && !done ? (
         <CompletionCard
-          monthGoal={state.breakdown?.month ?? ""}
+          goal={state.goal}
           error={error}
           status={status}
           onPlanNext={planNext}
@@ -60,7 +60,8 @@ export default function TodayPage() {
       ) : (
         <>
           <TaskCard
-            task={task}
+            task={currentStep?.text ?? ""}
+            type={currentStep?.type ?? "one-off"}
             cue={plan.cue}
             done={done}
             feeling={state.feelings[todayKey()]}
@@ -107,6 +108,7 @@ export default function TodayPage() {
 // (the checkbox). Calm, muted completed state — no streak language.
 function TaskCard({
   task,
+  type,
   cue,
   done,
   feeling,
@@ -115,6 +117,7 @@ function TaskCard({
   onLogFeeling,
 }: {
   task: string;
+  type: "one-off" | "habit";
   cue: string;
   done: boolean;
   feeling: Feeling | undefined;
@@ -124,9 +127,16 @@ function TaskCard({
 }) {
   return (
     <div className="rounded-[16px] border border-border bg-surface p-6">
-      <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-3">
-        Your one thing for today
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-muted">
+          Your one thing for today
+        </p>
+        {type === "habit" && (
+          <span className="text-[10px] uppercase tracking-[0.08em] text-muted border border-border rounded-full px-2 py-0.5">
+            habit
+          </span>
+        )}
+      </div>
       <p
         className={`text-xl font-semibold tracking-tight leading-snug ${
           done ? "text-muted" : "text-foreground"
@@ -134,7 +144,9 @@ function TaskCard({
       >
         {task}
       </p>
-      {cue && (
+      {/* The if-then cue is for recurring (habit) steps; a one-off doesn't need
+          a repeating cue. */}
+      {cue && type === "habit" && (
         <p className="text-sm text-muted leading-relaxed mt-3">
           When {deCap(cue)}, you&apos;ll do this.
         </p>
@@ -313,14 +325,15 @@ function StuckDiagnostic({
   );
 }
 
-// Shown when the week's ladder is finished — offers the next week.
+// Shown when the steps toward the nearest milestone are finished — offers the
+// steps for the next milestone.
 function CompletionCard({
-  monthGoal,
+  goal,
   error,
   status,
   onPlanNext,
 }: {
-  monthGoal: string;
+  goal: string;
   error: string | null;
   status: ReturnType<typeof completionStatus>;
   onPlanNext: () => void;
@@ -329,18 +342,18 @@ function CompletionCard({
     <div>
       <div className="rounded-[16px] border border-border bg-surface p-6 mb-10">
         <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-3">
-          This week
+          Milestone reached
         </p>
         <p className="text-xl font-semibold tracking-tight leading-snug mb-4">
-          You&apos;ve finished this week&apos;s steps. Nice work.
+          You&apos;ve finished this stretch of steps. Nice work.
         </p>
-        {monthGoal.trim() && (
+        {goal.trim() && (
           <p className="text-sm text-muted leading-relaxed mb-6">
-            Real progress toward {monthGoal.trim()}.
+            Real progress toward {goal.trim()}.
           </p>
         )}
         {error && <p className="text-sm text-muted mb-4">{error}</p>}
-        <PrimaryButton onClick={onPlanNext}>Plan next week</PrimaryButton>
+        <PrimaryButton onClick={onPlanNext}>Plan next steps</PrimaryButton>
       </div>
       <WeekDots status={status} labels />
       <p className="text-sm text-muted mt-3">
