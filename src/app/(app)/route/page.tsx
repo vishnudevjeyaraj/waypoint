@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useWaypoint } from "../../../lib/waypoint-context";
-import { SCIENCE_NOTES, stepProgress } from "../../../lib/waypoint";
-import { ScienceNote, usePageTitle } from "../../../components/ui";
+import { stepProgress } from "../../../lib/waypoint";
+import { usePageTitle } from "../../../components/ui";
 
 export default function RoutePage() {
   const { state, editStep } = useWaypoint();
@@ -53,12 +53,6 @@ export default function RoutePage() {
           </Waypoint>
         ))}
       </div>
-
-      <ScienceNote
-        show={state.showScience}
-        text={SCIENCE_NOTES.horizons}
-        label="Why this page"
-      />
     </div>
   );
 }

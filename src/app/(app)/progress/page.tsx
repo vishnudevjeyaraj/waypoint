@@ -1,13 +1,8 @@
 "use client";
 
 import { useWaypoint } from "../../../lib/waypoint-context";
-import { SCIENCE_NOTES, completionStatus, dateKey } from "../../../lib/waypoint";
-import {
-  MissMessage,
-  ScienceNote,
-  WeekDots,
-  usePageTitle,
-} from "../../../components/ui";
+import { completionStatus, dateKey } from "../../../lib/waypoint";
+import { MissMessage, WeekDots, usePageTitle } from "../../../components/ui";
 
 export default function ProgressPage() {
   const { state } = useWaypoint();
@@ -58,12 +53,6 @@ export default function ProgressPage() {
       <div className="mt-8">
         <MonthHistory completedDates={state.completedDates} />
       </div>
-
-      <ScienceNote
-        show={state.showScience}
-        text={SCIENCE_NOTES.weekly}
-        label="Why this page"
-      />
     </div>
   );
 }

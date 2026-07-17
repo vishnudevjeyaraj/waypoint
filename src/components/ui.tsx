@@ -3,7 +3,8 @@
 // Shared presentational primitives used across onboarding and the app pages.
 
 import { useEffect, useState } from "react";
-import { CompletionStatus } from "../lib/waypoint";
+import { usePathname } from "next/navigation";
+import { CompletionStatus, SCIENCE_NOTES } from "../lib/waypoint";
 
 // Sets the browser tab title for the current page.
 export function usePageTitle(title: string) {
@@ -131,6 +132,41 @@ export function ScienceNote({
         {label}
       </p>
       <p className="text-sm text-muted leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
+// The research behind each app page, mapped by route. Rendered in a side panel
+// (see SciencePanel) so the rationale is readable without scrolling — an
+// autonomy-support mechanism, not decoration.
+const PANEL_NOTES: Record<string, { label: string; text: string }[]> = {
+  "/today": [
+    { label: "One step at a time", text: SCIENCE_NOTES.progress },
+    { label: "No streaks, on purpose", text: SCIENCE_NOTES.weekly },
+  ],
+  "/route": [{ label: "Why a route", text: SCIENCE_NOTES.horizons }],
+  "/progress": [{ label: "No streaks, on purpose", text: SCIENCE_NOTES.weekly }],
+};
+
+// Shown beside the page content when "Show the science" is on. Picks the notes
+// for the current route.
+export function SciencePanel() {
+  const pathname = usePathname();
+  const notes = PANEL_NOTES[pathname] ?? [];
+  if (notes.length === 0) return null;
+  return (
+    <div className="rounded-[16px] border border-border bg-surface p-5">
+      <p className="text-[11px] uppercase tracking-[0.08em] text-muted mb-4">
+        The science on this page
+      </p>
+      <div className="space-y-5">
+        {notes.map((n) => (
+          <div key={n.label}>
+            <p className="text-sm font-medium mb-1">{n.label}</p>
+            <p className="text-sm text-muted leading-relaxed">{n.text}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -95,11 +95,6 @@ export default function TodayPage() {
               <p className="text-sm text-muted mt-3">
                 This week: {status.weekCount} of 7
               </p>
-              <ScienceNote
-                show={state.showScience}
-                text={SCIENCE_NOTES.progress}
-                label="Why this page"
-              />
             </div>
           )}
         </>
